@@ -8,6 +8,7 @@ import { getDemoConcepts, getMostPopularStyle } from "@/app/actions/public-demo-
 import { getPublishedAiMediaForProperty } from "@/app/actions/public-ai-media";
 import { getSimilarProperties } from "@/app/actions/recommendations";
 import { getUserAiQuota } from "@/app/actions/ai-quota";
+import { getFloorPlans } from "@/app/actions/floor-plans";
 import { auth } from "@/lib/auth";
 import { PropertyDetail } from "./property-detail";
 import { PropertyJsonLd } from "@/components/seo/property-jsonld";
@@ -91,12 +92,13 @@ export default async function PropertyDetailPage({
 
   // Fetch dream slider + AI media + similar properties in parallel
   const reqHeaders = await headers();
-  const [demoConcepts, session, publishedAiMedia, similarResult, teaserStyle] = await Promise.all([
+  const [demoConcepts, session, publishedAiMedia, similarResult, teaserStyle, floorPlansResult] = await Promise.all([
     getDemoConcepts(p.id),
     auth.api.getSession({ headers: reqHeaders }).catch(() => null),
     getPublishedAiMediaForProperty(p.id),
     getSimilarProperties(p.id, 4),
     getMostPopularStyle(p.id),
+    getFloorPlans({ propertyId: p.id }),
   ]);
 
   // Fetch AI quota for logged-in users
@@ -128,6 +130,17 @@ export default async function PropertyDetailPage({
         teaserStyle={teaserStyle}
         aiQuota={aiQuota}
         bestStagingImageUrl={bestStagingImageUrl}
+        floorPlans={
+          floorPlansResult.success && floorPlansResult.data?.length
+            ? floorPlansResult.data.map((fp) => ({
+                id: fp.id,
+                name: fp.name,
+                floor: fp.floor,
+                sceneData: fp.sceneData,
+                totalArea: fp.totalArea,
+              }))
+            : undefined
+        }
       />
     </>
   );

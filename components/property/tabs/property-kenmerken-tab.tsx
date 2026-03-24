@@ -52,7 +52,7 @@ interface PropertyKenmerkenTabProps {
 }
 
 // Category icons
-const categoryIcons: Record<FeatureCategory, React.ElementType> = {
+const categoryIcons: Record<FeatureCategory, React.ComponentType<{ className?: string }>> = {
   LICENSE: Shield,
   FACILITY: Wrench,
   UTILITY: Zap,

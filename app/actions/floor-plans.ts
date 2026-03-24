@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/types/actions";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -113,17 +113,17 @@ export async function saveFloorPlan(
       },
       update: {
         name,
-        sceneData,
+        sceneData: sceneData as Prisma.InputJsonValue,
         totalArea: totalArea ?? null,
-        zones: zones ?? undefined,
+        zones: zones ? (zones as Prisma.InputJsonValue) : undefined,
       },
       create: {
         propertyId,
         floor,
         name,
-        sceneData,
+        sceneData: sceneData as Prisma.InputJsonValue,
         totalArea: totalArea ?? null,
-        zones: zones ?? null,
+        zones: zones ? (zones as Prisma.InputJsonValue) : Prisma.DbNull,
       },
       select: { id: true },
     });

@@ -26,6 +26,8 @@ import {
 import { useEditorStore, useSceneStore } from "@/lib/editor/stores";
 import type { EditorTool, ViewMode } from "@/lib/editor/stores";
 import { cn } from "@/lib/utils";
+import { AiGenerateDialog } from "@/components/editor/ai-generate-dialog";
+import { AiScanDialog } from "@/components/editor/ai-scan-dialog";
 
 interface EditorToolbarProps {
   onSave: () => void;
@@ -170,6 +172,14 @@ export function EditorToolbar({ onSave, readOnly }: EditorToolbarProps) {
         </TooltipTrigger>
         <TooltipContent side="bottom">Opnieuw uitvoeren</TooltipContent>
       </Tooltip>
+
+      <Separator orientation="vertical" className="h-6" />
+
+      {/* AI tools */}
+      <div className="flex items-center gap-1">
+        <AiGenerateDialog disabled={readOnly} />
+        <AiScanDialog disabled={readOnly} />
+      </div>
 
       {/* Spacer */}
       <div className="flex-1" />

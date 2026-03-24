@@ -27,7 +27,7 @@ function SectionHeader({
   href,
   linkLabel = "Bekijk alles",
 }: {
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   title: string;
   badge?: number;
   href?: string;
