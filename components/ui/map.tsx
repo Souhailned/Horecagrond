@@ -226,6 +226,14 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       ...viewport,
     });
 
+    // Handle missing sprite images from basemap style (e.g. circle-11)
+    // Generates a transparent 1x1 placeholder to suppress console warnings
+    map.on("styleimagemissing", (e) => {
+      if (!map.hasImage(e.id)) {
+        map.addImage(e.id, { width: 1, height: 1, data: new Uint8Array(4) });
+      }
+    });
+
     const styleDataHandler = () => {
       clearStyleTimeout();
       // Delay to ensure style is fully processed before allowing layer operations
