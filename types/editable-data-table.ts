@@ -1,3 +1,4 @@
+import type * as React from "react";
 import type { Row } from "@tanstack/react-table";
 
 /**
@@ -7,6 +8,7 @@ export type EditableFieldType =
   | "text"
   | "number"
   | "select"
+  | "combobox"
   | "date"
   | "boolean"
   | "currency";
@@ -21,13 +23,22 @@ export interface EditableSelectOption {
 }
 
 /**
- * Configuration for an editable column — added to column.meta.editable
+ * A labelled group of options for combobox fields
  */
+export interface EditableOptionGroup {
+  label: string;
+  options: EditableSelectOption[];
+}
+
 export interface EditableColumnConfig {
   /** Which field input to render */
   type: EditableFieldType;
-  /** Options for select fields */
+  /** Options for select/combobox fields */
   options?: EditableSelectOption[];
+  /** Grouped options for combobox fields (takes precedence over flat options) */
+  groups?: EditableOptionGroup[];
+  /** Placeholder text for the combobox search input */
+  placeholder?: string;
   /** Min value for number/currency fields */
   min?: number;
   /** Max value for number/currency fields */
@@ -36,8 +47,9 @@ export interface EditableColumnConfig {
   step?: number;
   /** Currency symbol prefix (default: "\u20AC") */
   currencySymbol?: string;
-  /** Optional validation — return error string or null */
-  validate?: (value: unknown) => string | null;
+  /** Optional validation — return error string or null.
+   *  Second arg provides context: originalValue for uniqueness checks. */
+  validate?: (value: unknown, context?: { originalValue: unknown }) => string | null;
   /** Optional display formatter */
   formatDisplay?: (value: unknown) => string;
 }

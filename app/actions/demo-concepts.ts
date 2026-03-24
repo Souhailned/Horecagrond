@@ -60,26 +60,18 @@ export async function generateDemoConcept({
     throw new Error(`Unknown style: ${style}`);
   }
 
-  // 1. Fetch source image as bytes
-  const sourceResponse = await fetch(imageUrl);
-  if (!sourceResponse.ok) {
-    throw new Error(`Failed to fetch source image: ${sourceResponse.status}`);
-  }
-  const sourceBytes = new Uint8Array(await sourceResponse.arrayBuffer());
-
-  // 2. Generate image via AI SDK 6 + fal.ai
+  // 1. Generate image via AI SDK 6 + fal.ai
+  //    nano-banana-pro/edit requires image_url (URL string), not raw bytes
   const model = getFalImageModel(DEMO_CONCEPT_MODEL);
 
   const result = await generateImage({
     model,
-    prompt: {
-      images: [sourceBytes],
-      text: prompt,
-    },
+    prompt: prompt,
     providerOptions: {
       fal: {
-        num_images: 1,
-        output_format: "jpeg",
+        image_urls: [imageUrl],
+        numImages: 1,
+        outputFormat: "jpeg",
       },
     },
   });
@@ -247,6 +239,185 @@ export async function generateAllDemoConcepts(
     }
 
     // 3. Pause between styles to respect rate limits
+    await new Promise((r) => setTimeout(r, PAUSE_BETWEEN_STYLES_MS));
+  }
+
+  return { total: styles.length, succeeded, failed };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Teaser concept — single style for first-publish                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Generate a single teaser concept for first-publish.
+ * Only generates the default style for the property type.
+ * Remaining 5 styles are generated lazily after user signup.
+ */
+export async function generateTeaserConcept(
+  propertyId: string,
+  sourceImageUrl: string,
+  style: string
+): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
+  // 1. Upsert pending record
+  await prisma.propertyDemoConcept.upsert({
+    where: { propertyId_style: { propertyId, style } },
+    update: { status: "generating", sourceUrl: sourceImageUrl },
+    create: {
+      propertyId,
+      style,
+      sourceUrl: sourceImageUrl,
+      status: "generating",
+    },
+  });
+
+  // 2. Generate with retry
+  const MAX_RETRIES = 2;
+  const BACKOFF_MS = [5_000, 15_000];
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt - 1]));
+      }
+
+      const result = await generateDemoConcept({
+        propertyId,
+        style,
+        imageUrl: sourceImageUrl,
+      });
+
+      if (result.success) {
+        await prisma.propertyDemoConcept.update({
+          where: { propertyId_style: { propertyId, style } },
+          data: { status: "completed" },
+        });
+        return { success: true, imageUrl: result.imageUrl };
+      }
+    } catch (error) {
+      const isFinalAttempt = attempt === MAX_RETRIES;
+      const errorMsg =
+        error instanceof Error ? error.message : "Unknown error";
+
+      await prisma.propertyDemoConcept.update({
+        where: { propertyId_style: { propertyId, style } },
+        data: {
+          status: isFinalAttempt ? "failed" : "generating",
+          retryCount: attempt + 1,
+          errorMessage: errorMsg,
+        },
+      });
+
+      if (isFinalAttempt) {
+        return { success: false, error: errorMsg };
+      }
+    }
+  }
+
+  return { success: false, error: "All retries exhausted" };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Remaining concepts — lazy generation after signup                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Generate remaining concepts (all styles except the already-generated teaser).
+ * Called lazily after user signup / when they view the property.
+ */
+export async function generateRemainingConcepts(
+  propertyId: string,
+  sourceImageUrl: string,
+  excludeStyle: string
+): Promise<{ total: number; succeeded: number; failed: number }> {
+  const styles = Object.keys(stylePrompts).filter((s) => s !== excludeStyle);
+  let succeeded = 0;
+  let failed = 0;
+
+  const MAX_RETRIES = 2;
+  const BACKOFF_MS = [5_000, 15_000];
+  const PAUSE_BETWEEN_STYLES_MS = 2_000;
+
+  for (const style of styles) {
+    // Check if already generated
+    const existing = await prisma.propertyDemoConcept.findUnique({
+      where: { propertyId_style: { propertyId, style } },
+    });
+    if (existing?.status === "completed" && existing.imageUrl) {
+      succeeded++;
+      continue;
+    }
+
+    await prisma.propertyDemoConcept.upsert({
+      where: { propertyId_style: { propertyId, style } },
+      update: { status: "generating", sourceUrl: sourceImageUrl },
+      create: {
+        propertyId,
+        style,
+        sourceUrl: sourceImageUrl,
+        status: "generating",
+      },
+    });
+
+    let success = false;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt - 1]));
+        }
+
+        const result = await generateDemoConcept({
+          propertyId,
+          style,
+          imageUrl: sourceImageUrl,
+        });
+
+        if (result.success) {
+          await prisma.propertyDemoConcept.update({
+            where: { propertyId_style: { propertyId, style } },
+            data: { status: "completed" },
+          });
+          success = true;
+          succeeded++;
+          break;
+        }
+      } catch (error) {
+        const isFinalAttempt = attempt === MAX_RETRIES;
+        const errorMsg =
+          error instanceof Error ? error.message : "Unknown error";
+
+        await prisma.propertyDemoConcept.update({
+          where: { propertyId_style: { propertyId, style } },
+          data: {
+            status: isFinalAttempt ? "failed" : "generating",
+            retryCount: attempt + 1,
+            errorMessage: errorMsg,
+          },
+        });
+
+        await prisma.aiUsageLog
+          .create({
+            data: {
+              service: "fal-ai",
+              model: DEMO_CONCEPT_MODEL,
+              feature: "demo-concept",
+              costCents: 0,
+              status: "failed",
+              metadata: {
+                propertyId,
+                style,
+                attempt: attempt + 1,
+                error: errorMsg,
+              },
+            },
+          })
+          .catch(() => {
+            // Swallow logging errors
+          });
+      }
+    }
+
+    if (!success) failed++;
     await new Promise((r) => setTimeout(r, PAUSE_BETWEEN_STYLES_MS));
   }
 

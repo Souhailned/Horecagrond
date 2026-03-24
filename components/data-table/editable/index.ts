@@ -4,6 +4,7 @@ export {
   TextFieldInput,
   NumberFieldInput,
   SelectFieldInput,
+  ComboboxFieldInput,
   DateFieldInput,
   BooleanFieldInput,
   CurrencyFieldInput,

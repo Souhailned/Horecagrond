@@ -1,14 +1,19 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogPortal,
+  DialogOverlay,
+} from "@/components/ui/dialog";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
-  ArrowLeft,
   Undo2,
   Redo2,
   Eraser,
@@ -17,6 +22,9 @@ import {
   Minus,
   Plus,
   Paintbrush,
+  Trash2,
+  X,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InpaintCanvas } from "@/components/property/inpaint-canvas";
@@ -92,7 +100,6 @@ export function InpaintEditorModal({
   const handleGenerate = useCallback(async () => {
     if (isGenerating) return;
 
-    // Validate based on mode
     if (mode === "remove" && !canvasRef.current?.hasMask()) {
       setError("Markeer eerst het gebied dat je wilt verwijderen");
       return;
@@ -107,7 +114,6 @@ export function InpaintEditorModal({
     setResultUrl(null);
 
     try {
-      // 1. Create placeholder via server action
       const placeholderResult = await createInpaintPlaceholder({
         sourceConceptId,
         sourceImageId,
@@ -127,11 +133,9 @@ export function InpaintEditorModal({
       const { newImageId, sourceImageId: resolvedSourceId } =
         placeholderResult.data;
 
-      // 2. Get mask data URL if in remove mode
       const maskDataUrl =
         mode === "remove" ? canvasRef.current?.exportMask() : undefined;
 
-      // 3. Call SSE endpoint
       const response = await fetch("/api/ai/images/inpaint", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -151,7 +155,6 @@ export function InpaintEditorModal({
         return;
       }
 
-      // 4. Parse SSE events
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -219,241 +222,270 @@ export function InpaintEditorModal({
   /* -- Render -------------------------------------------------------------- */
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[100dvh] max-w-[100vw] flex-col gap-0 rounded-none border-0 p-0">
-        {/* ---------------------------------------------------------------- */}
-        {/*  Header                                                          */}
-        {/* ---------------------------------------------------------------- */}
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onOpenChange(false)}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <DialogTitle className="text-sm font-semibold">
-              AI Bewerker &mdash; {propertyTitle}
-            </DialogTitle>
-          </div>
-          <Badge variant="secondary" className="text-xs">
-            Beta
-          </Badge>
-        </div>
+      <DialogPortal>
+        <DialogOverlay className="bg-black/95" />
+        <DialogPrimitive.Content
+          className="fixed inset-0 z-50 flex flex-col outline-none"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          {/* Accessibility — visually hidden title */}
+          <DialogTitle className="sr-only">
+            AI Bewerker — {propertyTitle}
+          </DialogTitle>
 
-        {/* ---------------------------------------------------------------- */}
-        {/*  Main canvas area                                                */}
-        {/* ---------------------------------------------------------------- */}
-        <div className="relative flex-1 overflow-hidden bg-muted/30">
-          {resultUrl ? (
-            <div className="flex h-full items-center justify-center p-4">
-              <div className="w-full max-w-4xl">
-                <BeforeAfterSlider
-                  originalUrl={sourceImageUrl}
-                  resultUrl={resultUrl}
-                  beforeLabel="Origineel"
-                  afterLabel="Bewerkt"
-                />
-              </div>
-            </div>
-          ) : (
-            <InpaintCanvas
-              ref={canvasRef}
-              sourceImageUrl={sourceImageUrl}
-              brushSize={brushSize}
-              className="h-full w-full"
-            />
-          )}
+          {/* ============================================================== */}
+          {/*  HEADER TOOLBAR                                                */}
+          {/* ============================================================== */}
+          <div className="flex items-center justify-between border-b border-white/10 bg-black/50 px-4 py-3 backdrop-blur-sm">
+            <div className="flex items-center gap-4">
+              {/* Title */}
+              <h2 className="text-sm font-semibold text-white">
+                Edit Image
+              </h2>
 
-          {/* Progress overlay */}
-          {isGenerating && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
-              <div className="flex flex-col items-center gap-3 rounded-xl bg-card p-6 shadow-lg">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm font-medium">{progressLabel}</p>
-                {progress && (
-                  <div className="h-1.5 w-48 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-300"
-                      style={{ width: `${progress.pct}%` }}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ---------------------------------------------------------------- */}
-        {/*  Version history strip                                           */}
-        {/* ---------------------------------------------------------------- */}
-        {versions.length > 0 && (
-          <div className="flex items-center gap-2 border-t px-4 py-2">
-            <span className="text-xs text-muted-foreground">
-              Versies:
-            </span>
-            <div className="flex gap-1.5 overflow-x-auto">
-              {versions.map((v, i) => (
+              {/* Mode toggle — pill group */}
+              <div className="flex items-center gap-1 rounded-lg bg-white/10 p-1">
                 <button
-                  key={v.id}
-                  onClick={() => setResultUrl(v.url)}
+                  onClick={() => setMode("remove")}
                   className={cn(
-                    "relative h-10 w-16 flex-shrink-0 overflow-hidden rounded border-2 transition-colors",
-                    resultUrl === v.url
-                      ? "border-primary"
-                      : "border-transparent hover:border-muted-foreground/30"
+                    "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/20",
+                    mode === "remove" && "bg-red-500/30"
                   )}
                 >
-                  <img
-                    src={v.url}
-                    alt={`Versie ${i + 1}`}
-                    className="h-full w-full object-cover"
-                  />
-                  <span className="absolute bottom-0 left-0 bg-black/50 px-1 text-[8px] text-white">
-                    v{i + 1}
-                  </span>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Verwijderen
                 </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ---------------------------------------------------------------- */}
-        {/*  Toolbar                                                         */}
-        {/* ---------------------------------------------------------------- */}
-        <div className="space-y-3 border-t px-4 py-3">
-          {/* Error display */}
-          {error && (
-            <p className="text-center text-xs text-destructive">
-              {error}
-            </p>
-          )}
-
-          {/* Brush controls + mode toggle */}
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Brush size */}
-            <div className="flex items-center gap-2">
-              <Paintbrush className="h-4 w-4 text-muted-foreground" />
-              <Minus className="h-3 w-3 text-muted-foreground" />
-              <Slider
-                value={[brushSize]}
-                onValueChange={([v]) => setBrushSize(v)}
-                min={10}
-                max={100}
-                step={5}
-                className="w-32"
-              />
-              <Plus className="h-3 w-3 text-muted-foreground" />
-              <span className="w-10 text-xs text-muted-foreground">
-                {brushSize}px
-              </span>
-            </div>
-
-            {/* Mode toggle */}
-            <ToggleGroup
-              type="single"
-              value={mode}
-              onValueChange={(v) => {
-                if (v) setMode(v as EditorMode);
-              }}
-              className="gap-1"
-            >
-              <ToggleGroupItem value="remove" className="text-xs">
-                <Eraser className="mr-1 h-3.5 w-3.5" />
-                Verwijderen
-              </ToggleGroupItem>
-              <ToggleGroupItem value="add" className="text-xs">
-                <Wand2 className="mr-1 h-3.5 w-3.5" />
-                Toevoegen
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-
-          {/* Prompt + actions */}
-          <div className="flex flex-col gap-2 md:flex-row md:items-center">
-            <Input
-              placeholder={
-                mode === "remove"
-                  ? "Optioneel: beschrijf vervanging..."
-                  : "Beschrijf wat je wilt toevoegen..."
-              }
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              className="flex-1"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleGenerate();
-                }
-              }}
-            />
-
-            <div className="flex items-center gap-2">
-              {/* Undo / Redo / Clear */}
-              <div className="flex gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => canvasRef.current?.undo()}
-                  disabled={isGenerating || !!resultUrl}
-                  title="Ongedaan maken"
+                <button
+                  onClick={() => setMode("add")}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/20",
+                    mode === "add" && "bg-green-500/30"
+                  )}
                 >
-                  <Undo2 className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => canvasRef.current?.redo()}
-                  disabled={isGenerating || !!resultUrl}
-                  title="Opnieuw"
-                >
-                  <Redo2 className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => canvasRef.current?.clearMask()}
-                  disabled={isGenerating || !!resultUrl}
-                  title="Wis markering"
-                >
-                  <Eraser className="h-4 w-4" />
-                </Button>
+                  <Plus className="h-3.5 w-3.5" />
+                  Toevoegen
+                </button>
               </div>
 
-              {/* Quota indicator */}
-              {remaining >= 0 && (
-                <Badge
-                  variant="secondary"
-                  className="whitespace-nowrap text-xs"
-                >
-                  Nog {remaining}
-                </Badge>
-              )}
+              {/* Brush size slider */}
+              <div className="flex items-center gap-2">
+                <Paintbrush className="h-3.5 w-3.5 text-white/50" />
+                <span className="text-xs text-white/50">Grootte:</span>
+                <Slider
+                  value={[brushSize]}
+                  onValueChange={([v]) => setBrushSize(v)}
+                  min={10}
+                  max={100}
+                  step={5}
+                  className="w-28 [&_[data-slot=slider-range]]:bg-white/40 [&_[data-slot=slider-thumb]]:border-white/60 [&_[data-slot=slider-thumb]]:bg-white [&_[data-slot=slider-track]]:bg-white/20"
+                />
+                <span className="w-8 text-xs tabular-nums text-white/50">
+                  {brushSize}
+                </span>
+              </div>
 
-              {/* Generate / Edit again button */}
-              {resultUrl ? (
-                <Button
-                  onClick={() => {
-                    setResultUrl(null);
-                    setError(null);
-                  }}
-                  variant="outline"
+              {/* Undo / Clear */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => canvasRef.current?.undo()}
+                  disabled={isGenerating || !!resultUrl}
+                  className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
+                  title="Ongedaan maken"
                 >
-                  Opnieuw bewerken
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleGenerate}
-                  disabled={isGenerating || isLimitReached}
+                  <Undo2 className="h-3.5 w-3.5" />
+                  Undo
+                </button>
+                <button
+                  onClick={() => canvasRef.current?.redo()}
+                  disabled={isGenerating || !!resultUrl}
+                  className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
+                  title="Opnieuw"
                 >
-                  <Wand2 className="mr-1.5 h-4 w-4" />
-                  {isGenerating ? "Bezig..." : "Genereer"}
-                </Button>
+                  <Redo2 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => canvasRef.current?.clearMask()}
+                  disabled={isGenerating || !!resultUrl}
+                  className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
+                  title="Alles wissen"
+                >
+                  <Eraser className="h-3.5 w-3.5" />
+                  Wissen
+                </button>
+              </div>
+            </div>
+
+            {/* Right: Quota + Close */}
+            <div className="flex items-center gap-3">
+              {remaining >= 0 && (
+                <span className="text-xs tabular-nums text-white/50">
+                  {remaining} bewerkingen over
+                </span>
               )}
+              <button
+                onClick={() => onOpenChange(false)}
+                disabled={isGenerating}
+                className="rounded-md p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           </div>
-        </div>
-      </DialogContent>
+
+          {/* ============================================================== */}
+          {/*  CANVAS AREA                                                   */}
+          {/* ============================================================== */}
+          <div className="relative flex-1 overflow-hidden">
+            {resultUrl ? (
+              <div className="flex h-full items-center justify-center p-8">
+                <div className="w-full max-w-4xl">
+                  <BeforeAfterSlider
+                    originalUrl={sourceImageUrl}
+                    resultUrl={resultUrl}
+                    beforeLabel="Origineel"
+                    afterLabel="Bewerkt"
+                  />
+                </div>
+              </div>
+            ) : (
+              <InpaintCanvas
+                ref={canvasRef}
+                sourceImageUrl={sourceImageUrl}
+                brushSize={brushSize}
+                className="h-full w-full"
+              />
+            )}
+
+            {/* Processing overlay — dark with blur */}
+            {isGenerating && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+                <div className="text-center text-white">
+                  <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin" />
+                  <p className="text-sm font-medium">{progressLabel}</p>
+                  <p className="mt-1 text-xs text-white/50">
+                    Dit kan 20-30 seconden duren
+                  </p>
+                  {progress && (
+                    <div className="mx-auto mt-3 h-1 w-48 overflow-hidden rounded-full bg-white/20">
+                      <div
+                        className="h-full rounded-full bg-white/60 transition-all duration-300"
+                        style={{ width: `${progress.pct}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ============================================================== */}
+          {/*  VERSION HISTORY STRIP                                         */}
+          {/* ============================================================== */}
+          {versions.length > 0 && (
+            <div className="flex items-center gap-2 border-t border-white/10 bg-black/50 px-4 py-2 backdrop-blur-sm">
+              <span className="text-xs text-white/40">Versies:</span>
+              <div className="flex gap-1.5 overflow-x-auto">
+                {versions.map((v, i) => (
+                  <button
+                    key={v.id}
+                    onClick={() => setResultUrl(v.url)}
+                    className={cn(
+                      "relative h-10 w-16 flex-shrink-0 overflow-hidden rounded border-2 transition-colors",
+                      resultUrl === v.url
+                        ? "border-white/60"
+                        : "border-white/10 hover:border-white/30"
+                    )}
+                  >
+                    <img
+                      src={v.url}
+                      alt={`Versie ${i + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+                    <span className="absolute bottom-0 left-0 bg-black/70 px-1 text-[8px] text-white/80">
+                      v{i + 1}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================== */}
+          {/*  FOOTER CONTROLS                                               */}
+          {/* ============================================================== */}
+          <div className="border-t border-white/10 bg-black/50 px-4 py-3 backdrop-blur-sm">
+            {/* Error display */}
+            {error && (
+              <p className="mb-2 text-center text-sm text-red-400">
+                {error}
+              </p>
+            )}
+
+            <div className="mx-auto flex max-w-2xl items-center gap-3">
+              {resultUrl ? (
+                /* Post-result: Edit again */
+                <>
+                  <p className="flex-1 text-sm text-white/50">
+                    Tevreden met het resultaat? Sluit de editor of bewerk opnieuw.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setResultUrl(null);
+                      setError(null);
+                    }}
+                    className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+                  >
+                    Opnieuw bewerken
+                  </Button>
+                </>
+              ) : (
+                /* Active editing: Prompt + Execute */
+                <>
+                  <Input
+                    placeholder={
+                      mode === "remove"
+                        ? "Beschrijf wat je verwijdert (bijv. 'de lamp op tafel')..."
+                        : "Beschrijf wat je wilt toevoegen (bijv. 'een moderne vloerlamp')..."
+                    }
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    className="flex-1 border-white/10 bg-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleGenerate();
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={handleGenerate}
+                    disabled={isGenerating || isLimitReached}
+                    className={cn(
+                      "min-w-[120px] gap-2 text-white",
+                      mode === "remove"
+                        ? "bg-red-500 hover:bg-red-600"
+                        : "bg-green-500 hover:bg-green-600"
+                    )}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    {mode === "remove" ? "Verwijderen" : "Toevoegen"}
+                  </Button>
+                </>
+              )}
+            </div>
+
+            {/* Helper text */}
+            {!resultUrl && (
+              <p className="mt-2 text-center text-xs text-white/30">
+                {mode === "remove"
+                  ? "Teken over het object dat je wilt verwijderen"
+                  : "Teken over het gebied waar je iets wilt toevoegen"}
+              </p>
+            )}
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPortal>
     </Dialog>
   );
 }

@@ -1,8 +1,7 @@
 "use server";
 
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requirePermission } from "@/lib/session";
 import type { PropertyType } from "@/generated/prisma/client";
 
 type PropertyStatus = "DRAFT" | "ACTIVE" | "UNDER_OFFER" | "RENTED" | "SOLD" | "ARCHIVED";
@@ -36,14 +35,17 @@ function getDefaultStyle(propertyType: PropertyType): string {
 }
 
 export async function updatePropertyStatus(propertyId: string, status: PropertyStatus) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user?.id) {
-    return { error: "Niet ingelogd" };
-  }
+  const authCheck = await requirePermission("properties:edit-own");
+  if (!authCheck.success) return { success: false, error: authCheck.error };
 
-  // Verify ownership
+  const { userId, role } = authCheck.data!;
+
+  // Verify ownership (admin can update any property)
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, createdById: session.user.id },
+    where: {
+      id: propertyId,
+      ...(role !== "admin" ? { createdById: userId } : {}),
+    },
     include: {
       images: { where: { isPrimary: true }, take: 1 },
     },
@@ -66,19 +68,43 @@ export async function updatePropertyStatus(propertyId: string, status: PropertyS
     data: updateData,
   });
 
-  // On first publish: trigger match alerts + auto-generate demo concept
+  // On first publish: trigger match alerts + smart photo selection + teaser generation
   if (isFirstPublish) {
     const { matchAndNotifySearchAlerts } = await import("@/lib/search-alerts/matcher");
     void matchAndNotifySearchAlerts(propertyId).catch(console.error);
 
-    const primaryImage = property.images[0];
-    if (primaryImage?.originalUrl) {
-      const { generateAllDemoConcepts } = await import("@/app/actions/demo-concepts");
-      void generateAllDemoConcepts(
-        propertyId,
-        primaryImage.originalUrl,
-      ).catch(console.error);
-    }
+    // Smart pipeline: classify photos -> select best -> generate 1 teaser
+    void (async () => {
+      try {
+        const { classifyPropertyPhotos } = await import("@/app/actions/ai-photo-classify");
+        const classifyResult = await classifyPropertyPhotos(propertyId);
+
+        let sourceImageUrl: string;
+        if (classifyResult.success && classifyResult.data) {
+          sourceImageUrl = classifyResult.data.bestImageUrl;
+        } else {
+          // Fallback to primary image
+          const primaryImage = property.images[0];
+          if (!primaryImage?.originalUrl) return;
+          sourceImageUrl = primaryImage.originalUrl;
+        }
+
+        // Generate only 1 teaser concept (not all 6)
+        const { generateTeaserConcept } = await import("@/app/actions/demo-concepts");
+        const defaultStyle = getDefaultStyle(property.propertyType);
+        await generateTeaserConcept(propertyId, sourceImageUrl, defaultStyle);
+      } catch (error) {
+        console.error("[updatePropertyStatus] Smart pipeline failed:", error);
+
+        // Ultimate fallback: try old approach with primary image
+        const primaryImage = property.images[0];
+        if (primaryImage?.originalUrl) {
+          const { generateTeaserConcept } = await import("@/app/actions/demo-concepts");
+          const defaultStyle = getDefaultStyle(property.propertyType);
+          void generateTeaserConcept(propertyId, primaryImage.originalUrl, defaultStyle).catch(console.error);
+        }
+      }
+    })().catch(console.error);
   }
 
   return { success: true, status };

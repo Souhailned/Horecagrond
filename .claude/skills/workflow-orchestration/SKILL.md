@@ -1,75 +1,112 @@
 ---
 name: workflow-orchestration
-description: Workflow discipline for complex tasks. Enforces plan-first thinking, structured task tracking, subagent delegation, verification-before-done, and continuous self-improvement via lessons learned. Use PROACTIVELY at the start of any non-trivial task (3+ steps, architectural decisions, multi-file changes). Also use when the user says "plan this", "break this down", "track progress", or when a task feels complex enough to warrant structure.
+description: Workflow discipline for complex tasks. Plan-first thinking, structured task tracking, attention management, error protocols, and verification-before-done. Use PROACTIVELY at the start of any non-trivial task (3+ steps, architectural decisions, multi-file changes).
 ---
 
 # Workflow Orchestration
 
-Behavioral discipline for HOW to work — not what tools exist, but WHEN and WHY to use them.
+How to work — not what tools exist, but WHEN and WHY to use them.
 
-## 1. Plan Mode Default
+## 1. Plan First, Always
 
-Enter plan mode (`EnterPlanMode`) for ANY task with:
+Enter Plan Mode (`EnterPlanMode`) for ANY task with:
 - 3+ implementation steps
 - Architectural decisions
 - Multi-file changes
 - Unclear requirements
 
+Skip only for: single-line fixes, typos, obvious bugs with clear instructions.
+
 If something goes sideways mid-implementation: **STOP, re-plan, don't push through.**
-
-Write detailed specs upfront to reduce ambiguity. Use plan mode for verification steps, not just building.
-
-Skip plan mode only for: single-line fixes, typos, obvious bugs, or tasks with very specific instructions.
 
 ## 2. Task Tracking
 
 Use `TaskCreate` / `TaskUpdate` for all planned work:
-
-```
 1. Create tasks with clear acceptance criteria BEFORE coding
-2. Set status to in_progress BEFORE starting each task
-3. Mark completed ONLY after verification passes
-4. After completing a task, check TaskList for next work
+2. Set status to `in_progress` BEFORE starting each task
+3. Mark `completed` ONLY after verification passes
+4. After completing a task, check `TaskList` for next work
+
+Never mark complete if: build failing, implementation partial, errors unresolved.
+
+## 3. Attention Management
+
+After ~20+ tool calls, your original goals drift out of attention.
+
+**Read Before Decide:** Before any major decision or phase transition, re-read the plan. This pushes goals back into your recent attention window.
+
+**For truly complex tasks (10+ steps, multi-session):** Create a single `_plan.md` in the project root as persistent working memory. Structure:
+
+```markdown
+# Plan: [Title]
+## Goal
+[One sentence end-state]
+## Phases
+- [x] Phase 1: ... (complete)
+- [ ] Phase 2: ... (current)
+- [ ] Phase 3: ...
+## Decisions
+| Decision | Rationale |
+|----------|-----------|
+## Errors
+| Error | Attempt | Resolution |
+|-------|---------|------------|
+## Findings
+[Key discoveries, research results, file paths]
 ```
 
-Never mark a task completed if:
-- Build is failing
-- Implementation is partial
-- Errors are unresolved
+Delete `_plan.md` when the task is done. Don't leave planning artifacts in the repo.
 
-## 3. Subagent Strategy
+## 4. Subagent Strategy
 
-Use `Task` tool subagents liberally to:
+Use `Task` tool subagents to:
 - Keep main context window clean
 - Parallelize independent research/exploration
 - Isolate complex analysis from implementation
 
 Rules:
-- One task per subagent — focused execution
-- Use `Explore` type for broad codebase research
-- Use `general-purpose` for multi-step analysis
-- Don't duplicate work between main thread and subagents
+- One focused task per subagent
+- `Explore` type for broad codebase research
+- `general-purpose` for multi-step analysis
+- Never duplicate work between main thread and subagents
 
-## 4. Verification Before Done
+## 5. Error Protocol (3-Strike Rule)
+
+```
+ATTEMPT 1: Diagnose & Fix
+  Read error carefully. Identify root cause. Apply targeted fix.
+
+ATTEMPT 2: Alternative Approach
+  Same error? Different method. Different tool. Different library.
+  NEVER repeat the exact same failing action.
+
+ATTEMPT 3: Broader Rethink
+  Question assumptions. Search for solutions. Update the plan.
+
+AFTER 3 FAILURES: Escalate to User
+  Explain what you tried. Share the specific error. Ask for guidance.
+```
+
+Log every error in your plan or task tracking. Track what you tried — `if action_failed: next_action != same_action`.
+
+## 6. Verification Before Done
 
 Never mark a task complete without proving it works:
-
-1. Run `bun run build` — must pass
+1. `bun run build` — must pass
 2. Check for type errors and lint issues
-3. Diff behavior between before/after when relevant
+3. Diff behavior before/after when relevant
 4. Ask: "Would a staff engineer approve this?"
 
 If verification fails, keep task as `in_progress` and fix.
 
-## 5. Demand Elegance (Balanced)
+## 7. Demand Elegance (Balanced)
 
-For non-trivial changes, pause and ask: "Is there a more elegant way?"
-
+For non-trivial changes, pause: "Is there a more elegant way?"
 - If a fix feels hacky: implement the elegant solution
 - If simple and obvious: don't over-engineer
 - Challenge your own work before presenting it
 
-## 6. Autonomous Bug Fixing
+## 8. Autonomous Bug Fixing
 
 When given a bug report:
 1. Point at logs, errors, failing tests
@@ -78,23 +115,20 @@ When given a bug report:
 4. Verify the fix with build/tests
 5. Zero context switching required from the user
 
-## 7. Self-Improvement Loop
+## 9. Self-Improvement Loop
 
 After ANY correction from the user:
-
 1. Identify the pattern that caused the mistake
-2. Update auto-memory (`~/.claude/projects/.../memory/MEMORY.md`) with the lesson
+2. Update auto-memory with the lesson
 3. Write rules that prevent the same mistake
-4. Review lessons at session start for relevant project
 
-Format for lessons:
-```
-- YYYY-MM-DD: [What went wrong] → [Rule to prevent it]
-```
+Format: `YYYY-MM-DD: [What went wrong] -> [Rule to prevent it]`
 
 ## Core Principles
 
-- **Simplicity First** — Make every change as simple as possible. Minimal code impact.
-- **No Laziness** — Find root causes. No temporary fixes. Senior developer standards.
-- **Minimal Impact** — Touch only what's necessary. Avoid introducing new bugs.
-- **Explain Changes** — High-level summary at each step so user stays informed.
+- **Simplicity First** — Make every change as simple as possible
+- **No Laziness** — Find root causes. No temporary fixes. Senior standards
+- **Minimal Impact** — Touch only what's necessary
+- **Explain Changes** — High-level summary at each step
+- **Never Repeat Failures** — Track attempts, mutate approach
+- **Files are Memory** — When context gets long, write important state to disk

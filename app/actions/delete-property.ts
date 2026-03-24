@@ -1,15 +1,19 @@
 "use server";
 
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requirePermission } from "@/lib/session";
 
 export async function deleteProperty(propertyId: string) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user?.id) return { error: "Niet ingelogd" };
+  const authCheck = await requirePermission("properties:delete-own");
+  if (!authCheck.success) return { success: false, error: authCheck.error };
+
+  const { userId, role } = authCheck.data!;
 
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, createdById: session.user.id },
+    where: {
+      id: propertyId,
+      ...(role !== "admin" ? { createdById: userId } : {}),
+    },
   });
 
   if (!property) return { error: "Pand niet gevonden of geen toegang" };

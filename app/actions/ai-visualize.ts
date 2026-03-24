@@ -279,28 +279,19 @@ export async function triggerVirtualStaging(
     });
 
     // 12. Generate image via AI SDK 6 + fal.ai
+    //     nano-banana-pro/edit requires image_urls (URL array), not raw bytes
     const model = getFalImageModel(VIRTUAL_STAGING_MODEL);
-
-    // Fetch source image as bytes for the prompt
-    const sourceResponse = await fetch(imageUrl);
-    if (!sourceResponse.ok) {
-      await markImageFailed(placeholder.id, "Kon bronafbeelding niet laden");
-      return { success: false, error: "Kon bronafbeelding niet laden" };
-    }
-    const sourceBytes = new Uint8Array(await sourceResponse.arrayBuffer());
 
     let result;
     try {
       result = await generateImage({
         model,
-        prompt: {
-          images: [sourceBytes],
-          text: prompt,
-        },
+        prompt,
         providerOptions: {
           fal: {
-            num_images: 1,
-            output_format: "jpeg",
+            image_urls: [imageUrl],
+            numImages: 1,
+            outputFormat: "jpeg",
           },
         },
       });

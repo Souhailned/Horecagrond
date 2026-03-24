@@ -4,8 +4,9 @@
  * Priority: Groq → OpenAI → Ollama (local)
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getModel(): Promise<{ model: any; supportsTools: boolean }> {
+import type { LanguageModel } from "ai";
+
+export async function getModel(): Promise<{ model: LanguageModel; supportsTools: boolean }> {
   // 1. Groq (cloud, fast)
   if (process.env.GROQ_API_KEY) {
     const { createGroq } = await import("@ai-sdk/groq");

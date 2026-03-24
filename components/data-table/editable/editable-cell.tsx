@@ -7,24 +7,27 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import type {
   EditableColumnConfig,
+  EditableFieldType,
   FieldInputProps,
 } from "@/types/editable-data-table";
 import {
   TextFieldInput,
   NumberFieldInput,
   SelectFieldInput,
+  ComboboxFieldInput,
   DateFieldInput,
   BooleanFieldInput,
   CurrencyFieldInput,
 } from "./field-inputs";
 
 const FIELD_INPUT_MAP: Record<
-  string,
+  EditableFieldType,
   React.ComponentType<FieldInputProps>
 > = {
   text: TextFieldInput,
   number: NumberFieldInput,
   select: SelectFieldInput,
+  combobox: ComboboxFieldInput,
   date: DateFieldInput,
   boolean: BooleanFieldInput,
   currency: CurrencyFieldInput,
@@ -79,7 +82,7 @@ export function EditableCell<TData>({
 
   // Edit mode
   if (isEditing && !disabled) {
-    const FieldInput = FIELD_INPUT_MAP[config.type] ?? TextFieldInput;
+    const FieldInput = FIELD_INPUT_MAP[config.type];
 
     return (
       <div className="relative -m-1">

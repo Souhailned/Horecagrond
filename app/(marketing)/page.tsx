@@ -13,7 +13,6 @@ import {
   MapPin,
   ArrowRight,
   Star,
-  UtensilsCrossed,
   Briefcase,
   CheckCircle2,
   Clock,
@@ -329,41 +328,6 @@ export default async function Home() {
                 {stats.agents} makelaars
               </span>
             </div>
-          </div>
-
-          {/* ── Floating cards on the image area (desktop) ── */}
-          <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[55%] lg:block">
-            {/* Floating mini property card — bottom left of image area */}
-            <div
-              className={cn(
-                "pointer-events-auto absolute bottom-32 left-8 w-56 rounded-xl border border-border/60 bg-card/95 p-4 shadow-xl backdrop-blur-sm",
-                "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-6 motion-safe:duration-700 [animation-fill-mode:both]"
-              )}
-              style={{ animationDelay: "500ms" }}
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <UtensilsCrossed className="size-5 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    &euro;2.500
-                    <span className="text-xs font-normal text-muted-foreground">
-                      /mnd
-                    </span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">180 m² &middot; Terras</p>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center gap-1.5 text-xs">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                </span>
-                <span className="font-medium text-emerald-600">Beschikbaar</span>
-              </div>
-            </div>
-
           </div>
 
           {/* ── Category tabs search card — full width below ── */}

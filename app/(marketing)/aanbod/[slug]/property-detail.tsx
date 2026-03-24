@@ -127,6 +127,7 @@ interface PropertyDetailProps {
   similarProperties?: SimilarProperty[];
   teaserStyle?: string | null;
   aiQuota?: { freeEditsUsed: number; freeEditsLimit: number; remaining: number; totalEdits: number } | null;
+  bestStagingImageUrl?: string;
 }
 
 export function PropertyDetail({
@@ -137,6 +138,7 @@ export function PropertyDetail({
   similarProperties = [],
   teaserStyle,
   aiQuota,
+  bestStagingImageUrl,
 }: PropertyDetailProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -389,6 +391,48 @@ export function PropertyDetail({
           </div>
         </div>
 
+        {/* Share action bar */}
+        <div className="mb-8 flex items-center gap-2 rounded-xl border bg-muted/30 p-3">
+          <FavoriteButton
+            propertyId={property.id}
+            size="md"
+            className="rounded-lg"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                if (navigator.share) {
+                  await navigator.share({
+                    title: property.title,
+                    text: `Bekijk dit horecapand: ${property.title}`,
+                    url: window.location.href,
+                  });
+                } else {
+                  await navigator.clipboard.writeText(window.location.href);
+                  toast.success("Link gekopieerd!");
+                }
+              } catch {
+                // User cancelled share dialog — ignore
+              }
+            }}
+          >
+            <Share2 className="mr-1.5 size-4" />
+            Delen
+          </Button>
+          <WhatsAppButton title={property.title} slug={property.slug} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.print()}
+            className="hidden sm:flex"
+          >
+            <Printer className="mr-1.5 size-4" />
+            Print
+          </Button>
+        </div>
+
         {/* Content grid */}
         <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
           {/* LEFT: Main content */}
@@ -486,7 +530,7 @@ export function PropertyDetail({
               propertyId={property.id}
               propertySlug={property.slug}
               propertyTitle={property.title}
-              sourceImageUrl={property.images?.[0]?.originalUrl ?? ""}
+              sourceImageUrl={bestStagingImageUrl ?? property.images?.[0]?.originalUrl ?? ""}
               demoConcepts={demoConcepts || []}
               publishedAiMedia={publishedAiMedia}
               isLoggedIn={!!isLoggedIn}
@@ -844,48 +888,6 @@ export function PropertyDetail({
               />
             </div>
 
-            {/* Quick actions */}
-            <div className="mt-4 flex gap-2">
-              <FavoriteButton
-                propertyId={property.id}
-                size="md"
-                className="flex-1 rounded-lg"
-              />
-              <Button
-                variant="outline"
-                className="flex-1"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    if (navigator.share) {
-                      await navigator.share({
-                        title: property.title,
-                        text: `Bekijk dit horecapand: ${property.title}`,
-                        url: window.location.href,
-                      });
-                    } else {
-                      await navigator.clipboard.writeText(window.location.href);
-                      toast.success("Link gekopieerd!");
-                    }
-                  } catch {
-                    // User cancelled share dialog — ignore
-                  }
-                }}
-              >
-                <Share2 className="mr-1.5 size-4" />
-                Delen
-              </Button>
-              <WhatsAppButton title={property.title} slug={property.slug} />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.print()}
-                className="hidden sm:flex"
-              >
-                <Printer className="mr-1.5 size-4" />
-                Print
-              </Button>
-            </div>
 
             {/* Agent info */}
             <Card className="mt-4">

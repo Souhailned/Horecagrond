@@ -84,6 +84,11 @@ export default async function PropertyDetailPage({
   const p = result.data;
   const imgUrl = p.images?.[0]?.originalUrl || p.images?.[0]?.thumbnailUrl;
 
+  // Determine best source image for AI staging (classified > primary > first)
+  const bestStagingImageUrl =
+    (p as any).bestStagingImage?.originalUrl ??
+    p.images?.[0]?.originalUrl;
+
   // Fetch dream slider + AI media + similar properties in parallel
   const reqHeaders = await headers();
   const [demoConcepts, session, publishedAiMedia, similarResult, teaserStyle] = await Promise.all([
@@ -122,6 +127,7 @@ export default async function PropertyDetailPage({
         similarProperties={similarResult.properties}
         teaserStyle={teaserStyle}
         aiQuota={aiQuota}
+        bestStagingImageUrl={bestStagingImageUrl}
       />
     </>
   );

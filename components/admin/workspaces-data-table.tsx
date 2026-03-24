@@ -27,6 +27,14 @@ import { WorkspaceEditDialog } from "@/components/admin/workspace-edit-dialog";
 import { WorkspaceDeleteAlert } from "@/components/admin/workspace-delete-alert";
 import { format } from "date-fns";
 import type { AdminWorkspace } from "@/types/admin";
+import type { EditableSelectOption } from "@/types/editable-data-table";
+
+/** Demo combobox options for workspace type — replace with DB data later */
+const WORKSPACE_TYPE_OPTIONS: EditableSelectOption[] = [
+  { label: "Makelaarskantoor", value: "agency" },
+  { label: "Persoonlijk", value: "personal" },
+  { label: "Enterprise", value: "enterprise" },
+];
 
 interface WorkspacesDataTableProps {
   data: AdminWorkspace[];
@@ -40,6 +48,16 @@ export function WorkspacesDataTable({ data, pageCount, total }: WorkspacesDataTa
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
   const [deleteAlertOpen, setDeleteAlertOpen] = React.useState(false);
   const [selectedWorkspace, setSelectedWorkspace] = React.useState<AdminWorkspace | null>(null);
+
+  // Build O(1) lookup sets for uniqueness validation (js-set-map-lookups)
+  const existingSlugs = React.useMemo(
+    () => new Set(data.map((w) => w.slug)),
+    [data]
+  );
+  const existingNames = React.useMemo(
+    () => new Set(data.map((w) => w.name.toLowerCase())),
+    [data]
+  );
 
   const columns = React.useMemo<ColumnDef<AdminWorkspace>[]>(
     () => [
@@ -79,6 +97,16 @@ export function WorkspacesDataTable({ data, pageCount, total }: WorkspacesDataTa
           variant: "text",
           editable: {
             type: "text",
+            validate: (v, ctx) => {
+              const name = String(v ?? "").trim();
+              if (!name) return "Naam is verplicht";
+              if (name.length < 2) return "Minimaal 2 tekens";
+              const original = String(ctx?.originalValue ?? "").toLowerCase();
+              if (name.toLowerCase() !== original && existingNames.has(name.toLowerCase())) {
+                return "Deze naam is al in gebruik";
+              }
+              return null;
+            },
           },
         },
       },
@@ -104,12 +132,41 @@ export function WorkspacesDataTable({ data, pageCount, total }: WorkspacesDataTa
           variant: "text",
           editable: {
             type: "text",
-            validate: (v: unknown) => {
-              if (!/^[a-z0-9-]+$/.test(String(v ?? ""))) {
-                return "Slug must be lowercase with dashes only";
+            validate: (v, ctx) => {
+              const slug = String(v ?? "").trim();
+              if (!slug) return "Slug is verplicht";
+              if (!/^[a-z0-9-]+$/.test(slug)) {
+                return "Alleen kleine letters, cijfers en streepjes";
+              }
+              if (slug.length < 2) return "Minimaal 2 tekens";
+              const original = String(ctx?.originalValue ?? "");
+              if (slug !== original && existingSlugs.has(slug)) {
+                return "Deze slug is al in gebruik";
               }
               return null;
             },
+          },
+        },
+      },
+      {
+        id: "type",
+        accessorFn: () => "personal",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} label="Type" />
+        ),
+        cell: ({ row }) => {
+          const val = row.getValue("type") as string;
+          const opt = WORKSPACE_TYPE_OPTIONS.find((o) => o.value === val);
+          return (
+            <Badge variant="outline">{opt?.label ?? val}</Badge>
+          );
+        },
+        meta: {
+          label: "Type",
+          editable: {
+            type: "combobox" as const,
+            options: WORKSPACE_TYPE_OPTIONS,
+            placeholder: "Zoek type...",
           },
         },
       },
@@ -199,7 +256,7 @@ export function WorkspacesDataTable({ data, pageCount, total }: WorkspacesDataTa
         },
       },
     ],
-    []
+    [existingSlugs, existingNames]
   );
 
   const canEdit = React.useCallback(

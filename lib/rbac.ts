@@ -32,6 +32,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "analytics:own",
     // AI
     "ai:unlimited",
+    "ai:visualize",
+    "ai:description",
     "ai:listing-package",
     "ai:inpaint",
     // Export
@@ -100,6 +102,7 @@ export const TABLE_COLUMN_PERMISSIONS: Record<string, string> = {
   // Admin Workspaces table
   "admin-workspaces:name": "platform:manage",
   "admin-workspaces:slug": "platform:manage",
+  "admin-workspaces:type": "platform:manage",
   // Admin Agencies table
   "admin-agencies:plan": "platform:manage",
   "admin-agencies:verified": "platform:manage",

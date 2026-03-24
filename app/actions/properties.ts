@@ -24,6 +24,14 @@ const propertyIncludes = {
     orderBy: { displayOrder: "asc" as const },
   },
   financials: true,
+  bestStagingImage: {
+    select: {
+      id: true,
+      originalUrl: true,
+      aiRoomType: true,
+      aiStagingScore: true,
+    },
+  },
   agency: {
     select: {
       id: true,

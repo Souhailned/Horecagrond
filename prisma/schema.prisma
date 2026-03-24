@@ -498,6 +498,9 @@ model Property {
   horecaScoreDetails Json?          // Breakdown van de score
   locationScore     Int?            // 1-100
   footfallEstimate  Int?            // Geschatte passanten/dag
+  healthScore       Int?            // 0-100, platform berekend
+  healthScoreDetails Json?          // {content: 20, quality: 25, performance: 18, price: 15, freshness: 10}
+  healthScoreUpdatedAt DateTime?
 
   // Media (directe links)
   videoUrl              String?         // Video tour URL
@@ -538,6 +541,11 @@ model Property {
   // Admin
   adminNotes        String?         @db.Text
   rejectionReason   String?
+
+  // AI Photo Classification
+  bestStagingImageId  String?        @unique
+  bestStagingImage    PropertyImage? @relation("BestStagingImage", fields: [bestStagingImageId], references: [id], onDelete: SetNull)
+  aiPhotoClassifiedAt DateTime?
 
   // Timestamps
   createdAt         DateTime        @default(now())
@@ -595,6 +603,7 @@ model PropertyImage {
   id              String    @id @default(cuid())
   propertyId      String
   property        Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  bestStagingFor  Property? @relation("BestStagingImage")
 
   // URLs
   originalUrl     String              // Originele upload
@@ -614,6 +623,12 @@ model PropertyImage {
   aiProcessed     Boolean   @default(false)
   aiPrompt        String?
   aiStyle         String?             // Style template gebruikt
+
+  // AI Classification
+  aiClassification   Json?              // Full classification result from Groq vision
+  aiRoomType         String?            // Cached roomType (e.g. "dining_area", "kitchen")
+  aiStagingScore     Int?               // 0-100 staging suitability score
+  aiClassifiedAt     DateTime?
 
   // File Info
   filename        String?

@@ -77,7 +77,7 @@ export function EditableDataTable<TData>({
         ?.column.columnDef.meta?.editable;
 
       if (config?.validate) {
-        const error = config.validate(draftValue);
+        const error = config.validate(draftValue, { originalValue });
         if (error) {
           toast.error(error);
           return;

@@ -3,7 +3,6 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -14,14 +13,11 @@ import {
 import {
   Wand2,
   Loader2,
-  AlertCircle,
-  Video,
-  ArrowRight,
-  Eye,
-  Palette,
-  Layers,
+  Lock,
   Pencil,
   Sparkles,
+  ArrowRight,
+  ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -35,10 +31,10 @@ import type {
   PublishedAiImage,
 } from "@/app/actions/public-ai-media";
 
-const InpaintEditorModal = lazy(
-  () => import("@/components/property/inpaint-editor-modal").then(
-    (m) => ({ default: m.InpaintEditorModal })
-  )
+const InpaintEditorModal = lazy(() =>
+  import("@/components/property/inpaint-editor-modal").then((m) => ({
+    default: m.InpaintEditorModal,
+  }))
 );
 
 /* -------------------------------------------------------------------------- */
@@ -54,10 +50,16 @@ interface AiInterieurSectionProps {
   publishedAiMedia?: PublishedAiMedia;
   isLoggedIn: boolean;
   teaserStyle?: string;
-  aiQuota?: { freeEditsUsed: number; freeEditsLimit: number; remaining: number; totalEdits: number };
+  aiQuota?: {
+    freeEditsUsed: number;
+    freeEditsLimit: number;
+    remaining: number;
+    totalEdits: number;
+  };
 }
 
-const visualStyles = [
+/** Custom generation styles */
+const generateStyles = [
   { value: "specialty_coffee", label: "Specialty Coffee" },
   { value: "wine_tapas", label: "Wijnbar & Tapas" },
   { value: "bakery_brunch", label: "Bakkerij & Brunch" },
@@ -66,13 +68,7 @@ const visualStyles = [
   { value: "industrial_loft", label: "Industrial Loft" },
 ];
 
-const VALUE_PROPS = [
-  { icon: Eye, text: "6 interieurstijlen bekijken" },
-  { icon: Palette, text: "AI visualisaties op maat" },
-  { icon: Layers, text: "Voor- en na-vergelijking" },
-] as const;
-
-/** Readable style labels for thumbnail grid */
+/** Readable style labels for all concept types */
 const styleLabels: Record<string, string> = {
   restaurant_modern: "Modern Restaurant",
   restaurant_klassiek: "Klassiek Restaurant",
@@ -86,6 +82,19 @@ const styleLabels: Record<string, string> = {
   healthy_bar: "Healthy Bar",
   industrial_loft: "Industrial Loft",
 };
+
+/** All demo concept styles for locked grid (guests) */
+const ALL_DEMO_STYLES = [
+  "restaurant_modern",
+  "restaurant_klassiek",
+  "cafe_gezellig",
+  "bar_lounge",
+  "hotel_boutique",
+  "lunchroom_hip",
+];
+
+const AI_DISCLAIMER =
+  "Deze visualisaties zijn AI-gegenereerd en dienen ter inspiratie. Het werkelijke pand kan afwijken.";
 
 /* -------------------------------------------------------------------------- */
 /*  Component                                                                  */
@@ -104,56 +113,53 @@ export function AiInterieurSection({
 }: AiInterieurSectionProps) {
   /* -- Determine teaser concept for guests -------------------------------- */
   const teaserConcept = teaserStyle
-    ? demoConcepts.find((c) => c.style === teaserStyle) ?? demoConcepts[0] ?? null
-    : demoConcepts[0] ?? null;
+    ? (demoConcepts.find((c) => c.style === teaserStyle) ??
+      demoConcepts[0] ??
+      null)
+    : (demoConcepts[0] ?? null);
 
-  /* -- Slider state -------------------------------------------------------- */
+  /* -- Active display state ----------------------------------------------- */
   const [activeConcept, setActiveConcept] = useState<DemoConceptData | null>(
     isLoggedIn ? (demoConcepts[0] ?? null) : teaserConcept
   );
   const [activePublishedImage, setActivePublishedImage] =
     useState<PublishedAiImage | null>(null);
 
-  /* -- Generate state (logged-in only) ------------------------------------- */
+  /* -- Generate state ----------------------------------------------------- */
   const [style, setStyle] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  /* -- Editor modal state -------------------------------------------------- */
+  /* -- Editor modal state ------------------------------------------------- */
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorSourceUrl, setEditorSourceUrl] = useState("");
   const [editorConceptId, setEditorConceptId] = useState<string | undefined>();
 
   const signUpUrl = `/sign-up?source=ai_preview&property=${propertySlug}`;
-
   const aiImages = publishedAiMedia?.aiImages ?? [];
-  const hasVideo = !!publishedAiMedia?.videoUrl;
-
-  /* -- Quota display ------------------------------------------------------- */
   const remaining = aiQuota ? aiQuota.remaining : -1;
   const isLimitReached = remaining === 0;
 
-  /* -- Determine what the slider shows ------------------------------------- */
+  /* -- Derived slider state ----------------------------------------------- */
   const sliderResult = generatedImage
     ? generatedImage
     : activePublishedImage
       ? activePublishedImage.resultImageUrl
-      : activeConcept?.imageUrl ?? null;
+      : (activeConcept?.imageUrl ?? null);
 
   const sliderOriginal = activePublishedImage
     ? activePublishedImage.originalImageUrl
     : sourceImageUrl;
 
-  /* -- Track view on mount ------------------------------------------------- */
+  /* -- Track view on mount ------------------------------------------------ */
   useEffect(() => {
     trackDreamInteraction(propertyId, "view").catch(() => {});
   }, [propertyId]);
 
-  /* -- Generate handler (direct -- no polling) ----------------------------- */
+  /* -- Generate handler --------------------------------------------------- */
   async function handleGenerate() {
     if (!style || !isLoggedIn || !sourceImageUrl) return;
-
     setIsGenerating(true);
     setError(null);
     setGeneratedImage(null);
@@ -175,11 +181,7 @@ export function AiInterieurSection({
     setGeneratedImage(result.data!.resultUrl);
   }
 
-  const handleCtaClick = () => {
-    trackDreamInteraction(propertyId, "cta_click").catch(() => {});
-  };
-
-  /* -- Open editor with current slider image ------------------------------- */
+  /* -- Open inpaint editor ------------------------------------------------ */
   function openEditor() {
     const url = sliderResult || sourceImageUrl;
     if (!url) return;
@@ -188,43 +190,70 @@ export function AiInterieurSection({
     setEditorOpen(true);
   }
 
-  /* -------------------------------------------------------------------------- */
-  /*  Render                                                                     */
-  /* -------------------------------------------------------------------------- */
+  /* -- Select a concept --------------------------------------------------- */
+  function selectConcept(concept: DemoConceptData) {
+    setActiveConcept(concept);
+    setActivePublishedImage(null);
+    setGeneratedImage(null);
+    setError(null);
+    trackDreamInteraction(propertyId, "style_click", concept.style).catch(
+      () => {}
+    );
+  }
+
+  /* -- Build ordered styles for guest locked grid ------------------------- */
+  const guestOrderedStyles = teaserConcept
+    ? [
+        teaserConcept.style,
+        ...ALL_DEMO_STYLES.filter((s) => s !== teaserConcept.style),
+      ]
+    : ALL_DEMO_STYLES;
+
+  /* ======================================================================== */
+  /*  Render                                                                   */
+  /* ======================================================================== */
 
   return (
-    <div className="rounded-2xl border bg-card">
-      {/* 1. Header */}
+    <div className="overflow-hidden rounded-2xl border bg-card">
+      {/* ================================================================= */}
+      {/*  HEADER                                                            */}
+      {/* ================================================================= */}
       <div className="flex items-center justify-between px-5 pt-5 pb-3">
-        <div className="space-y-0.5">
-          <h3 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-              <Wand2 className="h-4 w-4 text-primary" />
-            </div>
-            AI Interieur
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Hoe zou <strong>{propertyTitle}</strong> eruitzien als jouw concept?
-          </p>
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <Sparkles className="h-4 w-4 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold leading-tight text-foreground">
+              AI Interieur
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Bekijk {propertyTitle} in verschillende stijlen
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Quota badge for logged-in users */}
+        <div className="flex items-center gap-1.5">
           {isLoggedIn && remaining >= 0 && (
-            <Badge variant="outline" className="text-xs">
-              {remaining} van {aiQuota?.freeEditsLimit} bewerkingen
+            <Badge
+              variant="outline"
+              className="text-[10px] tabular-nums font-normal"
+            >
+              {remaining} over
             </Badge>
           )}
           <Badge
             variant="secondary"
-            className="text-xs font-medium text-muted-foreground"
+            className="text-[10px] font-medium text-muted-foreground"
           >
-            {isLoggedIn ? "Beta" : "AI Preview"}
+            Beta
           </Badge>
         </div>
       </div>
 
-      {/* 2. Before/After Slider */}
-      <div className="px-5 pb-3">
+      {/* ================================================================= */}
+      {/*  MAIN VISUAL — Before/After Slider                                 */}
+      {/* ================================================================= */}
+      <div className="relative px-5 pb-3">
         {sliderResult && sliderOriginal ? (
           <div className="relative">
             <BeforeAfterSlider
@@ -232,34 +261,34 @@ export function AiInterieurSection({
               resultUrl={sliderResult}
             />
 
-            {/* Edit button for logged-in users */}
-            {isLoggedIn && (
+            {/* Edit button overlay */}
+            {isLoggedIn && !isGenerating && (
               <Button
                 variant="secondary"
                 size="sm"
-                className="absolute bottom-3 right-3 gap-1.5 bg-background/80 backdrop-blur-sm"
+                className="absolute right-3 bottom-3 gap-1.5 border border-white/20 bg-black/50 text-white backdrop-blur-sm hover:bg-black/70 hover:text-white"
                 onClick={openEditor}
                 disabled={isLimitReached}
               >
-                <Pencil className="h-3.5 w-3.5" />
+                <Pencil className="h-3 w-3" />
                 Bewerk
               </Button>
             )}
           </div>
         ) : (
-          /* No concepts: static placeholder */
-          <div className="relative flex aspect-[16/9] w-full items-center justify-center overflow-hidden rounded-xl border bg-muted/30">
+          /* Placeholder when no concepts exist */
+          <div className="relative flex aspect-[16/9] w-full items-center justify-center overflow-hidden rounded-xl bg-muted/40">
             {sourceImageUrl ? (
               <>
                 <Image
                   src={sourceImageUrl}
-                  alt="Pand foto"
+                  alt={propertyTitle}
                   fill
-                  className="object-cover opacity-40"
+                  className="object-cover opacity-30"
                   unoptimized
                 />
-                <div className="relative z-10 space-y-2 text-center">
-                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                <div className="relative z-10 text-center">
+                  <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
                     <Wand2 className="h-5 w-5 text-primary" />
                   </div>
                   <p className="text-sm font-medium text-foreground">
@@ -268,74 +297,89 @@ export function AiInterieurSection({
                 </div>
               </>
             ) : (
-              <div className="space-y-2 text-center">
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                  <Wand2 className="h-5 w-5 text-primary" />
-                </div>
+              <div className="text-center">
+                <Wand2 className="mx-auto mb-2 h-6 w-6 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">
-                  AI interieur preview binnenkort beschikbaar
+                  AI preview binnenkort beschikbaar
                 </p>
               </div>
             )}
           </div>
         )}
+
+        {/* Loading overlay — solid dark, covers the slider cleanly */}
+        {isGenerating && (
+          <div className="absolute inset-x-5 inset-y-0 z-20 flex items-center justify-center overflow-hidden rounded-xl bg-zinc-900">
+            {/* Subtle animated gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 via-zinc-900 to-zinc-800" />
+            <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-transparent via-white/[0.03] to-transparent" />
+
+            <div className="relative text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white/10">
+                <Loader2 className="h-5 w-5 animate-spin text-white/80" />
+              </div>
+              <p className="text-sm font-medium text-white">
+                AI genereert jouw stijl
+              </p>
+              <p className="mt-1 text-xs text-white/40">
+                Dit duurt 30-60 seconden
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 3. Clickable style thumbnails (logged-in users only) */}
-      {isLoggedIn && demoConcepts.length > 0 && (
+      {/* ================================================================= */}
+      {/*  STYLE STRIP — Logged-in users: clickable concepts                 */}
+      {/* ================================================================= */}
+      {isLoggedIn && demoConcepts.length > 0 && !isGenerating && (
         <div className="px-5 pb-3">
-          <p className="mb-2 text-xs font-medium text-muted-foreground">
-            Kies een stijl
-          </p>
-          <div className="grid grid-cols-3 gap-2">
-            {demoConcepts.slice(0, 6).map((concept) => (
-              <button
-                key={concept.id}
-                onClick={() => {
-                  setActiveConcept(concept);
-                  setActivePublishedImage(null);
-                  setGeneratedImage(null);
-                  trackDreamInteraction(propertyId, "style_click", concept.style).catch(
-                    () => {}
-                  );
-                }}
-                className={cn(
-                  "relative aspect-video overflow-hidden rounded-lg border-2 transition-colors",
-                  activeConcept?.id === concept.id &&
-                    !activePublishedImage &&
-                    !generatedImage
-                    ? "border-primary ring-1 ring-primary/20"
-                    : "border-transparent hover:border-muted-foreground/30"
-                )}
-              >
-                <Image
-                  src={concept.imageUrl}
-                  alt={styleLabels[concept.style] || concept.style}
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 pb-1 pt-3">
-                  <span className="text-[10px] font-medium text-white">
-                    {styleLabels[concept.style] || concept.style}
-                  </span>
-                </div>
-              </button>
-            ))}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {demoConcepts.slice(0, 6).map((concept) => {
+              const isActive =
+                activeConcept?.id === concept.id &&
+                !activePublishedImage &&
+                !generatedImage;
+
+              return (
+                <button
+                  key={concept.id}
+                  onClick={() => selectConcept(concept)}
+                  className={cn(
+                    "relative h-14 w-24 shrink-0 overflow-hidden rounded-lg transition-all",
+                    isActive
+                      ? "ring-2 ring-primary ring-offset-1 ring-offset-card"
+                      : "opacity-75 hover:opacity-100"
+                  )}
+                >
+                  <Image
+                    src={concept.imageUrl}
+                    alt={styleLabels[concept.style] || concept.style}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-3">
+                    <span className="text-[9px] font-medium leading-tight text-white">
+                      {styleLabels[concept.style] || concept.style}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* 4. Published AI gallery (makelaar images) */}
-      {aiImages.length > 0 && (
-        <div className="space-y-2 px-5 pb-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground">
-              AI-verbeterde foto&apos;s
-            </p>
-            <Badge variant="secondary">{aiImages.length} foto&apos;s</Badge>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
+      {/* ================================================================= */}
+      {/*  PUBLISHED AI IMAGES (makelaar) — inline strip                     */}
+      {/* ================================================================= */}
+      {aiImages.length > 0 && !isGenerating && (
+        <div className="px-5 pb-3">
+          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            AI-verbeterde foto&apos;s
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             {aiImages.map((img, i) => (
               <button
                 key={img.id}
@@ -344,10 +388,10 @@ export function AiInterieurSection({
                   setGeneratedImage(null);
                 }}
                 className={cn(
-                  "relative aspect-video overflow-hidden rounded-lg border-2 transition-colors",
+                  "relative h-14 w-24 shrink-0 overflow-hidden rounded-lg transition-all",
                   activePublishedImage?.id === img.id
-                    ? "border-primary ring-1 ring-primary/20"
-                    : "border-transparent hover:border-muted-foreground/30"
+                    ? "ring-2 ring-primary ring-offset-1 ring-offset-card"
+                    : "opacity-75 hover:opacity-100"
                 )}
               >
                 <img
@@ -355,70 +399,42 @@ export function AiInterieurSection({
                   alt={img.roomType ?? `AI foto ${i + 1}`}
                   className="h-full w-full object-cover"
                 />
-                {img.roomType && (
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 pb-1 pt-3">
-                    <span className="text-[10px] font-medium text-white">
-                      {img.roomType}
-                    </span>
-                  </div>
-                )}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* 5. Generate section (logged-in only) */}
-      {isLoggedIn && (
-        <div className="space-y-3 px-5 pb-4">
-          <Separator />
-          <p className="text-xs font-medium text-muted-foreground">
-            Of genereer je eigen stijl
-          </p>
-
-          {/* Loading / error / generated preview */}
-          {(isGenerating || error) && (
-            <div className="flex aspect-video items-center justify-center rounded-lg bg-muted overflow-hidden">
-              {isGenerating ? (
-                <div className="flex flex-col items-center gap-2">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <span className="text-xs text-muted-foreground">
-                    Genereren... dit kan 30-60 sec duren
-                  </span>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-2 p-4">
-                  <AlertCircle className="h-8 w-8 text-destructive" />
-                  <span className="text-center text-xs text-destructive">
-                    {error}
-                  </span>
-                </div>
-              )}
-            </div>
+      {/* ================================================================= */}
+      {/*  GENERATE BAR — Logged-in: compact style selector + button         */}
+      {/* ================================================================= */}
+      {isLoggedIn && !isGenerating && (
+        <div className="border-t px-5 py-3">
+          {/* Error display — subtle inline */}
+          {error && (
+            <p className="mb-2 text-xs text-destructive">{error}</p>
           )}
 
           {isLimitReached ? (
-            /* Limit reached: show upgrade CTA instead of generate */
-            <div className="rounded-lg border border-dashed p-4 text-center">
-              <Sparkles className="mx-auto mb-2 h-6 w-6 text-primary/60" />
-              <p className="mb-2 text-sm font-medium text-foreground">
-                Je gratis bewerkingen zijn op
-              </p>
-              <p className="mb-3 text-xs text-muted-foreground">
-                Upgrade voor onbeperkte AI visualisaties
-              </p>
-              <Button size="sm" variant="outline">
+            <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary/60" />
+                <span className="text-xs text-muted-foreground">
+                  Je gratis bewerkingen zijn op
+                </span>
+              </div>
+              <Button size="sm" variant="outline" className="h-7 text-xs">
                 Bekijk opties
               </Button>
             </div>
           ) : (
-            <div className="flex gap-3">
+            <div className="flex items-center gap-2">
               <Select value={style} onValueChange={setStyle}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Kies inrichtingsstijl..." />
+                <SelectTrigger className="h-9 flex-1 text-xs">
+                  <SelectValue placeholder="Kies een stijl om te genereren..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {visualStyles.map((s) => (
+                  {generateStyles.map((s) => (
                     <SelectItem key={s.value} value={s.value}>
                       {s.label}
                     </SelectItem>
@@ -428,85 +444,133 @@ export function AiInterieurSection({
               <Button
                 onClick={handleGenerate}
                 disabled={!style || !sourceImageUrl || isGenerating}
+                size="sm"
+                className="h-9 shrink-0 gap-1.5"
               >
-                <Wand2 className="mr-1.5 h-4 w-4" />
-                {isGenerating ? "Bezig..." : "Genereer"}
+                <Wand2 className="h-3.5 w-3.5" />
+                Genereer
               </Button>
             </div>
           )}
         </div>
       )}
 
-      {/* 6. Video Tour (logged-in only) */}
-      {isLoggedIn && (
-        <div className="px-5 pb-4">
-          <Separator className="mb-3" />
-          <div className="flex items-center gap-2 mb-3">
-            <Video className="h-4 w-4 text-muted-foreground" />
-            <p className="text-xs font-medium text-muted-foreground">
-              Video Tour
+      {/* ================================================================= */}
+      {/*  GUEST VIEW — Locked styles + CTA                                  */}
+      {/* ================================================================= */}
+      {!isLoggedIn && (
+        <div className="border-t">
+          {/* Locked style strip */}
+          <div className="px-5 pt-3 pb-2">
+            <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              Beschikbare stijlen
             </p>
-            {!hasVideo && (
-              <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-                Binnenkort
-              </Badge>
-            )}
-          </div>
-          {hasVideo ? (
-            <div className="aspect-video overflow-hidden rounded-xl bg-muted">
-              <video
-                src={publishedAiMedia!.videoUrl!}
-                controls
-                poster={publishedAiMedia!.videoThumbnailUrl ?? undefined}
-                className="h-full w-full object-contain"
-              />
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {guestOrderedStyles.slice(0, 6).map((s, index) => {
+                const isTeaser = index === 0 && teaserConcept;
+
+                if (isTeaser) {
+                  return (
+                    <div
+                      key={s}
+                      className="relative h-14 w-24 shrink-0 overflow-hidden rounded-lg ring-2 ring-primary ring-offset-1 ring-offset-card"
+                    >
+                      <Image
+                        src={teaserConcept.imageUrl}
+                        alt={styleLabels[s] || s}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-3">
+                        <span className="text-[9px] font-medium text-white">
+                          {styleLabels[s] || s}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <Link
+                    key={s}
+                    href={signUpUrl}
+                    onClick={() =>
+                      trackDreamInteraction(propertyId, "cta_click").catch(
+                        () => {}
+                      )
+                    }
+                    className="group relative h-14 w-24 shrink-0 overflow-hidden rounded-lg"
+                  >
+                    {teaserConcept?.imageUrl ? (
+                      <Image
+                        src={teaserConcept.imageUrl}
+                        alt={styleLabels[s] || s}
+                        fill
+                        className="object-cover blur-[6px] brightness-50 saturate-50 transition-all group-hover:blur-[8px]"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-muted" />
+                    )}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+                        <Lock className="h-3 w-3 text-white/80" />
+                      </div>
+                    </div>
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-3">
+                      <span className="text-[9px] font-medium text-white/70">
+                        {styleLabels[s] || s}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-8 text-center">
-              <Video className="mb-2 h-8 w-8 text-muted-foreground/40" />
-              <p className="text-sm font-medium text-muted-foreground">
-                Video tour binnenkort beschikbaar
+          </div>
+
+          {/* CTA */}
+          <div className="px-5 pb-4 pt-2">
+            <div className="rounded-xl bg-gradient-to-br from-primary/5 via-transparent to-primary/5 p-4 text-center">
+              <p className="mb-1 text-sm font-semibold text-foreground">
+                Bekijk alle 6 stijlen
+              </p>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Plus AI aanpassingen op maat van jouw concept
+              </p>
+              <Button size="sm" className="gap-1.5" asChild>
+                <Link
+                  href={signUpUrl}
+                  onClick={() =>
+                    trackDreamInteraction(propertyId, "cta_click").catch(
+                      () => {}
+                    )
+                  }
+                >
+                  Gratis aanmelden
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+              <p className="mt-2 text-[10px] text-muted-foreground/70">
+                Geen creditcard nodig
               </p>
             </div>
-          )}
+          </div>
         </div>
       )}
 
-      {/* 7. Guest CTA — directly under slider, no overlay */}
-      {!isLoggedIn && (
-        <>
-          {/* Value props */}
-          <div className="flex flex-wrap items-center justify-center gap-4 border-t px-5 py-3 sm:gap-6">
-            {VALUE_PROPS.map(({ icon: Icon, text }) => (
-              <div
-                key={text}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground"
-              >
-                <Icon className="h-3.5 w-3.5 text-primary/70" />
-                <span>{text}</span>
-              </div>
-            ))}
-          </div>
+      {/* ================================================================= */}
+      {/*  DISCLAIMER                                                        */}
+      {/* ================================================================= */}
+      <div className="border-t px-5 py-2">
+        <p className="text-center text-[10px] text-muted-foreground/60">
+          {AI_DISCLAIMER}
+        </p>
+      </div>
 
-          {/* CTA block */}
-          <div className="space-y-2 px-5 pb-5">
-            <p className="text-center text-sm font-medium text-foreground">
-              Bekijk alle 6 stijlen + pas aan met AI
-            </p>
-            <Button className="w-full" size="lg" asChild>
-              <Link href={signUpUrl} onClick={handleCtaClick}>
-                Gratis account aanmaken
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-            <p className="text-center text-xs text-muted-foreground">
-              Geen creditcard nodig &middot; 30 seconden klaar
-            </p>
-          </div>
-        </>
-      )}
-
-      {/* 8. Inpaint Editor Modal (lazy loaded) */}
+      {/* ================================================================= */}
+      {/*  INPAINT EDITOR MODAL                                              */}
+      {/* ================================================================= */}
       {isLoggedIn && editorOpen && (
         <Suspense fallback={null}>
           <InpaintEditorModal
@@ -516,7 +580,14 @@ export function AiInterieurSection({
             propertyTitle={propertyTitle}
             propertyId={propertyId}
             sourceConceptId={editorConceptId}
-            aiQuota={aiQuota ? { freeEditsUsed: aiQuota.freeEditsUsed, freeEditsLimit: aiQuota.freeEditsLimit } : undefined}
+            aiQuota={
+              aiQuota
+                ? {
+                    freeEditsUsed: aiQuota.freeEditsUsed,
+                    freeEditsLimit: aiQuota.freeEditsLimit,
+                  }
+                : undefined
+            }
             onSuccess={(resultUrl) => {
               setGeneratedImage(resultUrl);
             }}

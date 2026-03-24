@@ -27,6 +27,13 @@ import { useRouter } from "next/navigation";
 import { updateUser } from "@/app/actions/admin/users";
 import { usePermissions } from "@/hooks/use-permissions";
 import type { Row } from "@tanstack/react-table";
+import type { EditableSelectOption } from "@/types/editable-data-table";
+
+const ROLE_OPTIONS: EditableSelectOption[] = [
+  { label: "Ondernemer", value: "seeker" },
+  { label: "Makelaar", value: "agent" },
+  { label: "Admin", value: "admin" },
+];
 
 interface UsersDataTableProps {
   data: AdminUser[];
@@ -132,18 +139,11 @@ export function UsersDataTable({ data, pageCount, total, currentUserId }: UsersD
         meta: {
           label: "Role",
           variant: "select",
-          options: [
-            { label: "Ondernemer", value: "seeker" },
-            { label: "Makelaar", value: "agent" },
-            { label: "Admin", value: "admin" },
-          ],
+          options: ROLE_OPTIONS,
           editable: {
-            type: "select",
-            options: [
-              { label: "Ondernemer", value: "seeker" },
-              { label: "Makelaar", value: "agent" },
-              { label: "Admin", value: "admin" },
-            ],
+            type: "combobox",
+            options: ROLE_OPTIONS,
+            placeholder: "Zoek rol...",
           },
         },
       },
