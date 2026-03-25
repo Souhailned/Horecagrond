@@ -13,6 +13,7 @@ import {
   Save,
   Box,
   Layers2,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -26,8 +27,11 @@ import {
 import { useEditorStore, useSceneStore } from "@/lib/editor/stores";
 import type { EditorTool, ViewMode } from "@/lib/editor/stores";
 import { cn } from "@/lib/utils";
+import { captureCanvasAsPng, downloadDataUrl } from "@/lib/editor/utils";
+import { toast } from "sonner";
 import { AiGenerateDialog } from "@/components/editor/ai-generate-dialog";
 import { AiScanDialog } from "@/components/editor/ai-scan-dialog";
+import { TemplateDialog } from "@/components/editor/template-dialog";
 
 interface EditorToolbarProps {
   onSave: () => void;
@@ -175,14 +179,39 @@ export function EditorToolbar({ onSave, readOnly }: EditorToolbarProps) {
 
       <Separator orientation="vertical" className="h-6" />
 
-      {/* AI tools */}
+      {/* AI tools & Templates */}
       <div className="flex items-center gap-1">
+        <TemplateDialog disabled={readOnly} />
         <AiGenerateDialog disabled={readOnly} />
         <AiScanDialog disabled={readOnly} />
       </div>
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Export as PNG */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={() => {
+              const canvas = document.querySelector("canvas");
+              if (canvas) {
+                const png = captureCanvasAsPng(canvas);
+                downloadDataUrl(png, "plattegrond.png");
+                toast.success("Plattegrond geexporteerd als PNG");
+              }
+            }}
+            disabled={readOnly}
+            aria-label="Exporteer als PNG"
+          >
+            <Download className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Exporteer als PNG</TooltipContent>
+      </Tooltip>
 
       {/* Save */}
       <Tooltip>

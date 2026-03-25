@@ -3,22 +3,21 @@
 import { z } from "zod";
 import { generateText } from "ai";
 import { requirePermission } from "@/lib/session";
-import type { ActionResult } from "@/types/actions";
-import type {
-  SceneData,
-  ZoneNode,
-  WallNode,
-  ItemNode,
-  HorecaZoneType,
-  HorecaItemType,
-  AnyNode,
-} from "@/lib/editor/schema";
+import { getModel } from "@/lib/ai/model";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { canUserGenerate, incrementAiEditCount } from "@/app/actions/ai-quota";
 import {
-  ZONE_COLORS,
-  ITEM_DEFAULTS,
-  DEFAULT_WALL_HEIGHT,
-  DEFAULT_WALL_THICKNESS,
-} from "@/lib/editor/schema";
+  transformToSceneData,
+  parseLlmResponse,
+  VALID_ZONE_TYPES,
+  VALID_ITEM_TYPES,
+  type LlmFloorPlan,
+  type LlmZone,
+  type LlmItem,
+} from "@/lib/editor/ai-transform";
+import prisma from "@/lib/prisma";
+import type { ActionResult } from "@/types/actions";
+import type { SceneData } from "@/lib/editor/schema";
 
 // ---------------------------------------------------------------------------
 // Input validation
@@ -35,24 +34,6 @@ const generateFloorPlanSchema = z.object({
 });
 
 type GenerateFloorPlanInput = z.infer<typeof generateFloorPlanSchema>;
-
-// ---------------------------------------------------------------------------
-// LLM provider
-// ---------------------------------------------------------------------------
-
-async function getModel() {
-  if (process.env.GROQ_API_KEY) {
-    const { createGroq } = await import("@ai-sdk/groq");
-    const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
-    return groq("llama-3.3-70b-versatile");
-  }
-  if (process.env.OPENAI_API_KEY) {
-    const { createOpenAI } = await import("@ai-sdk/openai");
-    const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    return openai("gpt-4o-mini");
-  }
-  return null;
-}
 
 // ---------------------------------------------------------------------------
 // Property type labels for the prompt
@@ -74,45 +55,6 @@ const typeLabels: Record<string, string> = {
   COCKTAILBAR: "cocktailbar",
   NIGHTCLUB: "nachtclub",
 };
-
-// ---------------------------------------------------------------------------
-// Valid zone / item types (for filtering LLM output)
-// ---------------------------------------------------------------------------
-
-const VALID_ZONE_TYPES = new Set<string>([
-  "dining_area",
-  "bar_area",
-  "kitchen",
-  "storage",
-  "terrace",
-  "entrance",
-  "restroom",
-  "office",
-  "prep_area",
-  "walk_in_cooler",
-  "seating_outside",
-  "hallway",
-]);
-
-const VALID_ITEM_TYPES = new Set<string>([
-  "table_round",
-  "table_square",
-  "table_long",
-  "chair",
-  "barstool",
-  "bar_counter",
-  "kitchen_counter",
-  "oven",
-  "stove",
-  "fridge",
-  "sink",
-  "coffee_machine",
-  "display_case",
-  "register",
-  "booth",
-  "planter",
-  "parasol",
-]);
 
 // ---------------------------------------------------------------------------
 // LLM prompt
@@ -170,139 +112,6 @@ Rules:
 - For a restaurant with ${input.seatingCapacityInside ?? 40} seats, include roughly ${Math.ceil((input.seatingCapacityInside ?? 40) / 4)} tables and ${input.seatingCapacityInside ?? 40} chairs in dining areas
 - Keep item positions within their respective zone boundaries
 - All coordinates in meters from origin (0,0)`;
-}
-
-// ---------------------------------------------------------------------------
-// LLM response types (what we expect back)
-// ---------------------------------------------------------------------------
-
-interface LlmZone {
-  type: string;
-  x: number;
-  y: number;
-  width: number;
-  length: number;
-}
-
-interface LlmItem {
-  type: string;
-  x: number;
-  y: number;
-  rotation?: number;
-}
-
-interface LlmFloorPlan {
-  buildingWidth: number;
-  buildingLength: number;
-  zones: LlmZone[];
-  items: LlmItem[];
-}
-
-// ---------------------------------------------------------------------------
-// Transform LLM output → SceneData
-// ---------------------------------------------------------------------------
-
-function transformToSceneData(plan: LlmFloorPlan): SceneData {
-  const nodes: Record<string, AnyNode> = {};
-  const rootNodeIds: string[] = [];
-
-  const id = () => crypto.randomUUID();
-
-  // --- Perimeter walls ---
-  const w = plan.buildingWidth;
-  const l = plan.buildingLength;
-  const t = DEFAULT_WALL_THICKNESS;
-  const h = DEFAULT_WALL_HEIGHT;
-
-  const perimeterSegments: { start: [number, number]; end: [number, number] }[] = [
-    { start: [0, 0], end: [w, 0] },       // bottom
-    { start: [w, 0], end: [w, l] },        // right
-    { start: [w, l], end: [0, l] },        // top
-    { start: [0, l], end: [0, 0] },        // left
-  ];
-
-  for (const seg of perimeterSegments) {
-    const wallId = id();
-    const wall: WallNode = {
-      id: wallId,
-      type: "wall",
-      parentId: null,
-      visible: true,
-      position: [0, 0, 0],
-      rotation: [0, 0, 0],
-      start: seg.start,
-      end: seg.end,
-      thickness: t,
-      height: h,
-      material: "brick",
-    };
-    nodes[wallId] = wall;
-    rootNodeIds.push(wallId);
-  }
-
-  // --- Zones ---
-  for (const z of plan.zones) {
-    if (!VALID_ZONE_TYPES.has(z.type)) continue;
-
-    const zoneType = z.type as HorecaZoneType;
-    const zoneId = id();
-    const zw = Math.max(z.width, 1);
-    const zl = Math.max(z.length, 1);
-    const zx = z.x;
-    const zy = z.y;
-
-    const polygon: [number, number][] = [
-      [zx, zy],
-      [zx + zw, zy],
-      [zx + zw, zy + zl],
-      [zx, zy + zl],
-    ];
-
-    const zone: ZoneNode = {
-      id: zoneId,
-      type: "zone",
-      parentId: null,
-      visible: true,
-      position: [0, 0, 0],
-      rotation: [0, 0, 0],
-      zoneType,
-      polygon,
-      area: zw * zl,
-      color: ZONE_COLORS[zoneType],
-    };
-    nodes[zoneId] = zone;
-    rootNodeIds.push(zoneId);
-
-    // Add interior walls between zones (simplified: one wall on the right and top edge)
-    // We skip this to avoid doubling walls — perimeter is sufficient for a generated plan.
-  }
-
-  // --- Items ---
-  for (const item of plan.items) {
-    if (!VALID_ITEM_TYPES.has(item.type)) continue;
-
-    const itemType = item.type as HorecaItemType;
-    const defaults = ITEM_DEFAULTS[itemType];
-    const itemId = id();
-    const rotY = item.rotation === 90 ? Math.PI / 2 : 0;
-
-    const itemNode: ItemNode = {
-      id: itemId,
-      type: "item",
-      parentId: null,
-      visible: true,
-      position: [item.x, 0, item.y],
-      rotation: [0, rotY, 0],
-      itemType,
-      width: defaults.width,
-      depth: defaults.depth,
-      height: defaults.height,
-    };
-    nodes[itemId] = itemNode;
-    rootNodeIds.push(itemId);
-  }
-
-  return { nodes, rootNodeIds };
 }
 
 // ---------------------------------------------------------------------------
@@ -390,49 +199,6 @@ function generateFallbackPlan(input: GenerateFloorPlanInput): SceneData {
 }
 
 // ---------------------------------------------------------------------------
-// Parse LLM JSON response (robust)
-// ---------------------------------------------------------------------------
-
-function parseLlmResponse(text: string): LlmFloorPlan | null {
-  // Try to extract JSON from the response (handle markdown code blocks, etc.)
-  let jsonStr = text.trim();
-
-  // Strip markdown code fences if present
-  const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) {
-    jsonStr = fenceMatch[1].trim();
-  }
-
-  // Find the first { ... } block
-  const start = jsonStr.indexOf("{");
-  const end = jsonStr.lastIndexOf("}");
-  if (start === -1 || end === -1) return null;
-  jsonStr = jsonStr.slice(start, end + 1);
-
-  try {
-    const parsed = JSON.parse(jsonStr);
-
-    // Basic validation
-    if (
-      typeof parsed.buildingWidth !== "number" ||
-      typeof parsed.buildingLength !== "number" ||
-      !Array.isArray(parsed.zones)
-    ) {
-      return null;
-    }
-
-    return {
-      buildingWidth: parsed.buildingWidth,
-      buildingLength: parsed.buildingLength,
-      zones: Array.isArray(parsed.zones) ? parsed.zones : [],
-      items: Array.isArray(parsed.items) ? parsed.items : [],
-    };
-  } catch {
-    return null;
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Main action
 // ---------------------------------------------------------------------------
 
@@ -445,7 +211,19 @@ export async function generateAiFloorPlan(
     return { success: false, error: authCheck.error };
   }
 
-  // 2. Validate input
+  // 2. Rate limiting
+  const rateLimit = await checkRateLimit(authCheck.data!.userId, "ai");
+  if (!rateLimit.success) {
+    return { success: false, error: "Te veel verzoeken. Probeer het later opnieuw." };
+  }
+
+  // 3. Quota check
+  const quota = await canUserGenerate(authCheck.data!.userId);
+  if (!quota.allowed) {
+    return { success: false, error: "AI limiet bereikt" };
+  }
+
+  // 4. Validate input
   const parsed = generateFloorPlanSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -456,17 +234,18 @@ export async function generateAiFloorPlan(
 
   const validInput = parsed.data;
 
-  // 3. Get LLM model
-  const model = await getModel();
-  if (!model) {
-    // No AI provider — use deterministic fallback
-    const fallback = generateFallbackPlan(validInput);
-    return { success: true, data: fallback };
-  }
+  // 5. Get LLM model (never returns null — falls back to Ollama)
+  const modelResult = await getModel();
+  const model = modelResult.model;
 
-  // 4. Generate floor plan via LLM
+  // 6. Generate floor plan via LLM
   try {
     const prompt = buildPrompt(validInput);
+    const modelName = process.env.GROQ_API_KEY
+      ? "llama-3.3-70b-versatile"
+      : process.env.OPENAI_API_KEY
+        ? "gpt-4o-mini"
+        : "llama3.2:3b";
 
     const { text } = await generateText({
       model,
@@ -475,7 +254,7 @@ export async function generateAiFloorPlan(
       maxOutputTokens: 4000,
     });
 
-    // 5. Parse LLM response
+    // 7. Parse LLM response
     const llmPlan = parseLlmResponse(text);
     if (!llmPlan) {
       console.error("AI floor plan: kon LLM-response niet parsen", text.slice(0, 500));
@@ -484,8 +263,24 @@ export async function generateAiFloorPlan(
       return { success: true, data: fallback };
     }
 
-    // 6. Transform to SceneData
+    // 8. Transform to SceneData
     const sceneData = transformToSceneData(llmPlan);
+
+    // 9. Track quota (fire-and-forget)
+    incrementAiEditCount(authCheck.data!.userId).catch(() => {});
+
+    // 10. Log AI usage (fire-and-forget)
+    prisma.aiUsageLog.create({
+      data: {
+        userId: authCheck.data!.userId,
+        service: process.env.GROQ_API_KEY ? "groq" : process.env.OPENAI_API_KEY ? "openai" : "ollama",
+        model: modelName,
+        feature: "floor-plan-generate",
+        costCents: 0,
+        status: "success",
+      },
+    }).catch(() => {});
+
     return { success: true, data: sceneData };
   } catch (error) {
     console.error("AI floor plan generatie mislukt:", error);

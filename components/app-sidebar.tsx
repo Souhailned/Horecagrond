@@ -40,6 +40,7 @@ import {
   Heart,
   Bell,
   Scales,
+  Crosshair,
   Gear,
   Question,
   ShieldCheck,
@@ -55,6 +56,7 @@ import {
   Kanban,
   CheckSquare,
   Sparkle,
+  Blueprint,
 } from "@phosphor-icons/react/dist/ssr"
 import { signOut } from "@/lib/auth-client"
 import { toast } from "sonner"
@@ -75,6 +77,8 @@ const navItemIcons: Record<NavItemId, React.ComponentType<{ className?: string }
   favorieten: Heart,
   alerts: Bell,
   vergelijk: Scales,
+  intelligence: Crosshair,
+  plattegronden: Blueprint,
 }
 
 // Icon mapping for footer items

@@ -39,9 +39,17 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     // Export
     "export:all",
     "export:own",
+    // Floor plans
+    "floorplans:manage",
+    "floorplans:view",
     // Projects
     "projects:create",
     "projects:manage",
+    // Intelligence (full access)
+    "intelligence:view",
+    "intelligence:manage",
+    "intelligence:scan",
+    "intelligence:share",
   ],
   agent: [
     // Properties
@@ -65,8 +73,16 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     // Agency
     "agency:manage",
     "agency:invite-members",
+    // Floor plans
+    "floorplans:manage",
+    "floorplans:view",
     // Projects
     "projects:create",
+    // Intelligence (full access — makelaar scant voor klanten)
+    "intelligence:view",
+    "intelligence:manage",
+    "intelligence:scan",
+    "intelligence:share",
   ],
   seeker: [
     // Search
@@ -75,10 +91,16 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     // Favorites
     "favorites:manage",
     "search-alerts:manage",
+    // Floor plans (view only)
+    "floorplans:view",
     // AI (limited)
     "ai:visualize",
     // Contact
     "inquiries:create",
+    // Intelligence (self-service — ondernemer zoekt zelf)
+    "intelligence:view",
+    "intelligence:manage",
+    "intelligence:scan",
   ],
 };
 

@@ -9,3 +9,5 @@ export {
   estimateCapacity,
   generateId,
 } from "./geometry";
+
+export { captureCanvasAsPng, downloadDataUrl } from "./export";

@@ -1,22 +1,29 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { memo, useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { Html } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { ZoneNode } from '../schema';
 import { ZONE_LABELS } from '../schema';
+import { polygonCentroid } from '../utils/geometry';
 
 interface ZoneRendererProps {
   node: ZoneNode;
   selected: boolean;
   onSelect: (id: string) => void;
+  zoneColor: string;
 }
 
 /** Thin extrude depth for the zone floor slab */
 const ZONE_EXTRUDE_HEIGHT = 0.02;
 
-export function ZoneRenderer({ node, selected, onSelect }: ZoneRendererProps) {
+function ZoneRendererInner({
+  node,
+  selected,
+  onSelect,
+  zoneColor,
+}: ZoneRendererProps) {
   const meshRef = useRef<THREE.Mesh>(null);
 
   const shape = useMemo(() => {
@@ -39,17 +46,16 @@ export function ZoneRenderer({ node, selected, onSelect }: ZoneRendererProps) {
     return new THREE.ExtrudeGeometry(shape, settings);
   }, [shape]);
 
-  const centroid = useMemo(() => {
-    if (node.polygon.length === 0) return [0, 0] as const;
-    let cx = 0;
-    let cy = 0;
-    for (const [x, y] of node.polygon) {
-      cx += x;
-      cy += y;
-    }
-    const n = node.polygon.length;
-    return [cx / n, cy / n] as const;
-  }, [node.polygon]);
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
+
+  const centroid = useMemo(
+    () => polygonCentroid(node.polygon),
+    [node.polygon],
+  );
 
   const label = ZONE_LABELS[node.zoneType];
   const areaText = `${Math.round(node.area)}m\u00B2`;
@@ -71,7 +77,7 @@ export function ZoneRenderer({ node, selected, onSelect }: ZoneRendererProps) {
         onClick={handleClick}
       >
         <meshStandardMaterial
-          color={node.color}
+          color={zoneColor}
           transparent
           opacity={selected ? 0.6 : 0.4}
           side={THREE.DoubleSide}
@@ -86,23 +92,20 @@ export function ZoneRenderer({ node, selected, onSelect }: ZoneRendererProps) {
         distanceFactor={10}
         style={{ pointerEvents: 'none' }}
       >
-        <div
-          style={{
-            background: 'rgba(0, 0, 0, 0.75)',
-            color: '#ffffff',
-            padding: '4px 8px',
-            borderRadius: '4px',
-            fontSize: '12px',
-            fontFamily: 'system-ui, sans-serif',
-            whiteSpace: 'nowrap',
-            lineHeight: 1.3,
-            textAlign: 'center',
-          }}
-        >
-          <div style={{ fontWeight: 600 }}>{label}</div>
-          <div style={{ opacity: 0.8 }}>{areaText}</div>
+        <div className="whitespace-nowrap rounded bg-foreground/75 px-2 py-1 text-center font-sans text-xs leading-tight text-background">
+          <div className="font-semibold">{label}</div>
+          <div className="opacity-80">{areaText}</div>
         </div>
       </Html>
     </group>
   );
 }
+
+export const ZoneRenderer = memo(ZoneRendererInner, (prev, next) => {
+  return (
+    prev.node === next.node &&
+    prev.selected === next.selected &&
+    prev.onSelect === next.onSelect &&
+    prev.zoneColor === next.zoneColor
+  );
+});

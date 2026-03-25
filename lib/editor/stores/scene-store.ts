@@ -4,6 +4,7 @@
 
 import { create } from "zustand";
 import { temporal } from "zundo";
+import isDeepEqual from "fast-deep-equal";
 import type { AnyNode, SceneData } from "../schema";
 
 interface SceneState {
@@ -46,6 +47,29 @@ function collectDescendantIds(
   return ids;
 }
 
+/** Valid fields per node type — used for dev-only type safety warnings */
+const BASE_FIELDS = new Set([
+  "id",
+  "type",
+  "parentId",
+  "visible",
+  "position",
+  "rotation",
+  "metadata",
+]);
+const NODE_TYPE_FIELDS: Record<string, Set<string>> = {
+  wall: new Set(["start", "end", "thickness", "height", "material"]),
+  slab: new Set(["polygon", "thickness"]),
+  zone: new Set([
+    "zoneType",
+    "polygon",
+    "area",
+    "color",
+    "capacity",
+  ]),
+  item: new Set(["itemType", "width", "depth", "height", "model"]),
+};
+
 export const useSceneStore = create<SceneState>()(
   temporal(
     (set, get) => ({
@@ -80,6 +104,19 @@ export const useSceneStore = create<SceneState>()(
         set((state) => {
           const existing = state.nodes[id];
           if (!existing) return state;
+
+          if (process.env.NODE_ENV === "development") {
+            const typeFields = NODE_TYPE_FIELDS[existing.type];
+            if (typeFields) {
+              for (const key of Object.keys(updates)) {
+                if (!BASE_FIELDS.has(key) && !typeFields.has(key)) {
+                  console.warn(
+                    `[editor] updateNode: field "${key}" is not valid for node type "${existing.type}"`,
+                  );
+                }
+              }
+            }
+          }
 
           const updated = { ...existing, ...updates, id, type: existing.type } as AnyNode;
           const nextDirty = new Set(state.dirtyNodes);
@@ -180,8 +217,7 @@ export const useSceneStore = create<SceneState>()(
         return rest;
       },
       // Only track data fields, not actions
-      equality: (pastState, currentState) =>
-        JSON.stringify(pastState) === JSON.stringify(currentState),
+      equality: isDeepEqual,
     },
   ),
 );

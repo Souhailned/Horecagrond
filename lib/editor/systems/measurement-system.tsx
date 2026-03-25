@@ -3,7 +3,14 @@
 import { useMemo } from "react";
 import { useSceneStore } from "../stores";
 import { polygonArea } from "../utils";
-import type { ZoneNode, ItemNode, HorecaZoneType } from "../schema";
+import type { ZoneNode, ItemNode, HorecaZoneType, HorecaItemType } from "../schema";
+
+/** Number of seats each seating item type provides */
+const SEATS_PER_ITEM: Partial<Record<HorecaItemType, number>> = {
+  chair: 1,
+  barstool: 1,
+  booth: 4,
+};
 
 export interface ZoneSummary {
   id: string;
@@ -20,6 +27,8 @@ export interface SceneMeasurements {
   wallCount: number;
   itemCount: number;
   zones: ZoneSummary[];
+  /** Seating capacity derived from actual placed items (chair=1, barstool=1, booth=4) */
+  seatingCapacity: number;
 }
 
 /**
@@ -36,6 +45,7 @@ export function useSceneMeasurements(): SceneMeasurements {
     let totalCapacity = 0;
     let wallCount = 0;
     let itemCount = 0;
+    let seatingCapacity = 0;
 
     const items = nodeValues.filter((n) => n.type === "item") as ItemNode[];
 
@@ -69,6 +79,14 @@ export function useSceneMeasurements(): SceneMeasurements {
       }
     }
 
-    return { totalArea, totalCapacity, wallCount, itemCount, zones };
+    // Count seating capacity from actual placed items
+    for (const itemNode of items) {
+      const seats = SEATS_PER_ITEM[itemNode.itemType];
+      if (seats) {
+        seatingCapacity += seats;
+      }
+    }
+
+    return { totalArea, totalCapacity, wallCount, itemCount, zones, seatingCapacity };
   }, [nodes]);
 }

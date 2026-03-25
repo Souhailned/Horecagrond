@@ -73,3 +73,19 @@ export const ITEM_DEFAULTS = {
   planter: { width: 0.5, depth: 0.5, height: 0.8, label: "Plantenbak" },
   parasol: { width: 3.0, depth: 3.0, height: 2.5, label: "Parasol" },
 } as const satisfies Record<HorecaItemType, ItemDefault>;
+
+/** CSS variable token names per zone type */
+export const ZONE_COLOR_TOKENS: Record<HorecaZoneType, string> = {
+  dining_area: "--editor-zone-dining",
+  bar_area: "--editor-zone-bar",
+  kitchen: "--editor-zone-kitchen",
+  storage: "--editor-zone-storage",
+  terrace: "--editor-zone-terrace",
+  entrance: "--editor-zone-entrance",
+  restroom: "--editor-zone-restroom",
+  office: "--editor-zone-office",
+  prep_area: "--editor-zone-prep-area",
+  walk_in_cooler: "--editor-zone-walk-in-cooler",
+  seating_outside: "--editor-zone-seating-outside",
+  hallway: "--editor-zone-hallway",
+};

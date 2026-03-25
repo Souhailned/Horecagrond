@@ -1,33 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
+import { useEditorStore } from "@/lib/editor/stores";
 import { ITEM_DEFAULTS } from "@/lib/editor/schema";
 import type { HorecaItemType } from "@/lib/editor/schema";
-import { useEditorStore } from "@/lib/editor/stores";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
-interface AssetCategory {
+type ItemCategory = "meubilair" | "keuken" | "bar" | "terras" | "overig";
+
+const CATEGORIES: {
+  id: ItemCategory;
   label: string;
   items: HorecaItemType[];
-}
-
-const CATEGORIES: AssetCategory[] = [
+}[] = [
   {
-    label: "Tafels",
-    items: ["table_round", "table_square", "table_long"],
+    id: "meubilair",
+    label: "Meubilair",
+    items: ["table_round", "table_square", "table_long", "chair", "booth"],
   },
   {
-    label: "Zitplaatsen",
-    items: ["chair", "barstool", "booth"],
-  },
-  {
-    label: "Bar",
-    items: ["bar_counter"],
-  },
-  {
+    id: "keuken",
     label: "Keuken",
     items: [
       "kitchen_counter",
@@ -39,83 +33,80 @@ const CATEGORIES: AssetCategory[] = [
     ],
   },
   {
+    id: "bar",
+    label: "Bar",
+    items: ["bar_counter", "barstool", "display_case", "register"],
+  },
+  {
+    id: "terras",
+    label: "Terras",
+    items: ["parasol", "planter"],
+  },
+  {
+    id: "overig",
     label: "Overig",
-    items: ["display_case", "register", "planter", "parasol"],
+    items: [], // catch-all for any items not in other categories
   },
 ];
 
-function formatDimensions(w: number, d: number): string {
-  return `${(w * 100).toFixed(0)}×${(d * 100).toFixed(0)} cm`;
-}
-
-interface CategorySectionProps {
-  category: AssetCategory;
-  defaultOpen?: boolean;
-}
-
-function CategorySection({ category, defaultOpen = true }: CategorySectionProps) {
-  const [open, setOpen] = useState(defaultOpen);
+export function AssetPanel() {
+  const [activeCategory, setActiveCategory] =
+    useState<ItemCategory>("meubilair");
   const startPlacingItem = useEditorStore((s) => s.startPlacingItem);
   const placingItemType = useEditorStore((s) => s.placingItemType);
 
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className="flex w-full items-center gap-1.5 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-muted/50 transition-colors"
-      >
-        {open ? (
-          <ChevronDown className="size-3.5" />
-        ) : (
-          <ChevronRight className="size-3.5" />
-        )}
-        {category.label}
-        <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0">
-          {category.items.length}
-        </Badge>
-      </button>
-      {open && (
-        <div className="flex flex-col gap-0.5 px-1.5 pb-1.5">
-          {category.items.map((itemType) => {
-            const defaults = ITEM_DEFAULTS[itemType];
-            const isActive = placingItemType === itemType;
+  const category = CATEGORIES.find((c) => c.id === activeCategory)!;
 
-            return (
-              <button
-                key={itemType}
-                type="button"
-                onClick={() => startPlacingItem(itemType)}
-                className={cn(
-                  "flex items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
-                  "hover:bg-accent hover:text-accent-foreground",
-                  isActive && "bg-primary/10 text-primary ring-1 ring-primary/20"
-                )}
-              >
-                <span className="truncate font-medium">{defaults.label}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {formatDimensions(defaults.width, defaults.depth)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function AssetPanel() {
   return (
     <div className="flex h-full w-[200px] flex-col border-r border-border bg-background">
       <div className="border-b border-border px-3 py-2">
         <h2 className="text-sm font-semibold text-foreground">Inventaris</h2>
       </div>
+
+      {/* Category tabs */}
+      <div className="flex flex-wrap gap-1 border-b border-border px-2 py-1.5">
+        {CATEGORIES.filter((c) => c.items.length > 0).map((cat) => (
+          <Button
+            key={cat.id}
+            variant={activeCategory === cat.id ? "default" : "ghost"}
+            size="sm"
+            className="h-6 px-2 text-[11px]"
+            onClick={() => setActiveCategory(cat.id)}
+          >
+            {cat.label}
+          </Button>
+        ))}
+      </div>
+
+      {/* Items grid */}
       <ScrollArea className="flex-1">
-        <div className="flex flex-col py-1">
-          {CATEGORIES.map((category) => (
-            <CategorySection key={category.label} category={category} />
-          ))}
+        <div className="grid grid-cols-2 gap-1.5 p-2">
+          {category.items.map((itemType) => {
+            const def = ITEM_DEFAULTS[itemType];
+            const isActive = placingItemType === itemType;
+
+            return (
+              <button
+                key={itemType}
+                onClick={() => startPlacingItem(itemType)}
+                className={cn(
+                  "flex flex-col items-center gap-1 rounded-md border border-border p-2 text-center transition-colors hover:bg-accent",
+                  isActive &&
+                    "border-primary bg-primary/10 ring-1 ring-primary",
+                )}
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded bg-muted text-xs font-medium text-muted-foreground">
+                  {def.width.toFixed(1)}m
+                </div>
+                <span className="text-[10px] leading-tight text-foreground">
+                  {def.label}
+                </span>
+                <span className="text-[9px] text-muted-foreground">
+                  {def.width}&times;{def.depth}m
+                </span>
+              </button>
+            );
+          })}
         </div>
       </ScrollArea>
     </div>

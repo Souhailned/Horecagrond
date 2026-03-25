@@ -1,21 +1,15 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { memo, useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { Edges } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { HorecaItemType, ItemNode } from '../schema';
 
-interface ItemRendererProps {
-  node: ItemNode;
-  selected: boolean;
-  onSelect: (id: string) => void;
-}
-
-type ItemCategory = 'table' | 'seating' | 'kitchen' | 'bar' | 'decor';
+export type ItemCategory = 'table' | 'seating' | 'kitchen' | 'bar' | 'decor';
 
 /** Map item types to visual categories */
-const ITEM_CATEGORY: Record<HorecaItemType, ItemCategory> = {
+export const ITEM_CATEGORY: Record<HorecaItemType, ItemCategory> = {
   table_round: 'table',
   table_square: 'table',
   table_long: 'table',
@@ -35,18 +29,21 @@ const ITEM_CATEGORY: Record<HorecaItemType, ItemCategory> = {
   parasol: 'decor',
 };
 
-/** Color per item category */
-const CATEGORY_COLORS: Record<ItemCategory, string> = {
-  table: '#8B4513',
-  seating: '#DEB887',
-  kitchen: '#C0C0C0',
-  bar: '#4a3728',
-  decor: '#228B22',
-};
+interface ItemRendererProps {
+  node: ItemNode;
+  selected: boolean;
+  onSelect: (id: string) => void;
+  categoryColors: Record<ItemCategory, string>;
+  selectedColor: string;
+}
 
-const SELECTED_EDGE_COLOR = '#3b82f6';
-
-export function ItemRenderer({ node, selected, onSelect }: ItemRendererProps) {
+function ItemRendererInner({
+  node,
+  selected,
+  onSelect,
+  categoryColors,
+  selectedColor,
+}: ItemRendererProps) {
   const meshRef = useRef<THREE.Mesh>(null);
 
   const geometry = useMemo(
@@ -54,8 +51,14 @@ export function ItemRenderer({ node, selected, onSelect }: ItemRendererProps) {
     [node.width, node.height, node.depth],
   );
 
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
+
   const category = ITEM_CATEGORY[node.itemType];
-  const color = CATEGORY_COLORS[category];
+  const color = categoryColors[category];
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
@@ -82,10 +85,20 @@ export function ItemRenderer({ node, selected, onSelect }: ItemRendererProps) {
       {selected && (
         <Edges
           threshold={15}
-          color={SELECTED_EDGE_COLOR}
+          color={selectedColor}
           lineWidth={2}
         />
       )}
     </mesh>
   );
 }
+
+export const ItemRenderer = memo(ItemRendererInner, (prev, next) => {
+  return (
+    prev.node === next.node &&
+    prev.selected === next.selected &&
+    prev.onSelect === next.onSelect &&
+    prev.categoryColors === next.categoryColors &&
+    prev.selectedColor === next.selectedColor
+  );
+});

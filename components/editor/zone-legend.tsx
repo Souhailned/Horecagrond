@@ -1,89 +1,94 @@
 "use client";
 
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useSceneMeasurements } from "@/lib/editor/systems";
 import { ZONE_COLORS, ZONE_LABELS } from "@/lib/editor/schema";
+import { useEditorColors, type EditorColors } from "@/lib/editor/theme";
 import { cn } from "@/lib/utils";
 
-function StatItem({
-  label,
-  value,
-  className,
-}: {
-  label: string;
-  value: string | number;
-  className?: string;
-}) {
-  return (
-    <div className={cn("flex items-center justify-between gap-2", className)}>
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-xs font-medium text-foreground">{value}</span>
-    </div>
-  );
-}
+const ZONE_TYPE_TO_COLOR_KEY: Record<string, keyof EditorColors> = {
+  dining_area: "zoneDining",
+  bar_area: "zoneBar",
+  kitchen: "zoneKitchen",
+  storage: "zoneStorage",
+  terrace: "zoneTerrace",
+  entrance: "zoneEntrance",
+  restroom: "zoneRestroom",
+  office: "zoneOffice",
+  prep_area: "zonePrepArea",
+  walk_in_cooler: "zoneWalkInCooler",
+  seating_outside: "zoneSeatingOutside",
+  hallway: "zoneHallway",
+};
 
 export function ZoneLegend() {
-  const { zones, totalArea, totalCapacity, wallCount, itemCount } =
-    useSceneMeasurements();
+  const colors = useEditorColors();
+  const { zones, totalArea, wallCount, itemCount } = useSceneMeasurements();
+  const [expanded, setExpanded] = useState(false);
 
   if (zones.length === 0 && wallCount === 0 && itemCount === 0) {
     return null;
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-border bg-background/95 p-3 shadow-sm backdrop-blur-sm">
-      {/* Zone list */}
-      {zones.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Zones
-          </span>
-          {zones.map((zone) => (
-            <div
-              key={zone.id}
-              className="flex items-center gap-2 text-xs"
-            >
+    <div className="rounded-md border border-border bg-background/90 shadow-sm backdrop-blur-sm">
+      {/* Compact header — always visible */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left hover:bg-accent/50 rounded-md transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          {/* Zone color dots (compact) */}
+          <div className="flex -space-x-0.5">
+            {zones.slice(0, 4).map((zone) => (
               <span
-                className="inline-block size-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: ZONE_COLORS[zone.zoneType] ?? "#999" }}
+                key={zone.id}
+                className="inline-block size-2 rounded-full ring-1 ring-background"
+                style={{
+                  backgroundColor:
+                    colors[ZONE_TYPE_TO_COLOR_KEY[zone.zoneType]] ??
+                    ZONE_COLORS[zone.zoneType] ??
+                    "#999",
+                }}
+              />
+            ))}
+          </div>
+          <span className="text-[11px] font-medium text-foreground">
+            {totalArea.toFixed(0)}m² · {wallCount}W · {itemCount}I
+          </span>
+        </div>
+        {expanded ? (
+          <ChevronUp className="size-3 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="size-3 text-muted-foreground" />
+        )}
+      </button>
+
+      {/* Expanded detail */}
+      {expanded && (
+        <div className="border-t border-border px-2.5 py-2 space-y-1.5">
+          {zones.map((zone) => (
+            <div key={zone.id} className="flex items-center gap-1.5 text-[11px]">
+              <span
+                className="inline-block size-2 shrink-0 rounded-full"
+                style={{
+                  backgroundColor:
+                    colors[ZONE_TYPE_TO_COLOR_KEY[zone.zoneType]] ??
+                    ZONE_COLORS[zone.zoneType] ??
+                    "#999",
+                }}
               />
               <span className="flex-1 truncate text-foreground">
                 {ZONE_LABELS[zone.zoneType]}
               </span>
               <span className="shrink-0 text-muted-foreground">
-                {zone.area.toFixed(1)} m&sup2;
+                {zone.area.toFixed(0)}m²
               </span>
-              <Badge
-                variant="secondary"
-                className="h-4 px-1 text-[10px] leading-none"
-              >
-                {zone.capacity}
-              </Badge>
             </div>
           ))}
         </div>
       )}
-
-      {zones.length > 0 && <Separator />}
-
-      {/* Totals */}
-      <div className="flex flex-col gap-1">
-        {zones.length > 0 && (
-          <>
-            <StatItem
-              label="Totale oppervlakte"
-              value={`${totalArea.toFixed(1)} m\u00B2`}
-            />
-            <StatItem
-              label="Totale capaciteit"
-              value={`${totalCapacity} stoelen`}
-            />
-          </>
-        )}
-        <StatItem label="Muren" value={wallCount} />
-        <StatItem label="Inventaris" value={itemCount} />
-      </div>
     </div>
   );
 }

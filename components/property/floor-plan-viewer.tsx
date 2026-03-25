@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import type { SceneData } from "@/lib/editor/schema";
-import { useEditorStore } from "@/lib/editor/stores";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Layers, Box, Maximize2 } from "lucide-react";
+import { Layers, Box, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const PropertyEditor = dynamic(
@@ -65,23 +64,30 @@ export function FloorPlanViewer({
   const [selectedFloorId, setSelectedFloorId] = useState<string>(
     floorPlans[0]?.id ?? ""
   );
-  const setViewMode = useEditorStore((s) => s.setViewMode);
-  const viewMode = useEditorStore((s) => s.viewMode);
+  const [viewMode, setViewMode] = useState<"2d" | "3d">("3d");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      containerRef.current.requestFullscreen();
+    }
+  }, []);
+
+  // Sync state when user exits fullscreen via Escape key
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
 
   // Sort floors ascending
   const sortedFloors = [...floorPlans].sort((a, b) => a.floor - b.floor);
 
   const selectedFloor = sortedFloors.find((fp) => fp.id === selectedFloorId);
-
-  // Reset view mode to 3d when component mounts
-  useEffect(() => {
-    setViewMode("3d");
-  }, [setViewMode]);
-
-  // Reset view mode when switching floors
-  useEffect(() => {
-    setViewMode("3d");
-  }, [selectedFloorId, setViewMode]);
 
   if (floorPlans.length === 0) {
     return null;
@@ -90,7 +96,7 @@ export function FloorPlanViewer({
   const sceneData = selectedFloor?.sceneData as SceneData | undefined;
 
   return (
-    <Card>
+    <Card ref={containerRef} className={cn(isFullscreen && "flex flex-col h-screen rounded-none border-none shadow-none bg-background")}>
       <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pb-4">
         <div className="flex items-center gap-2">
           <Maximize2 className="size-5 text-muted-foreground" />
@@ -127,6 +133,23 @@ export function FloorPlanViewer({
               3D
             </Button>
           </div>
+
+          {/* Fullscreen toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 px-2.5 text-xs font-medium"
+            onClick={toggleFullscreen}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="size-3.5" />
+            ) : (
+              <Maximize2 className="size-3.5" />
+            )}
+            <span className="hidden sm:inline">
+              {isFullscreen ? "Sluiten" : "Volledig scherm"}
+            </span>
+          </Button>
         </div>
       </CardHeader>
 
@@ -142,7 +165,10 @@ export function FloorPlanViewer({
                 "h-8 gap-1.5 text-xs",
                 fp.id === selectedFloorId && "pointer-events-none"
               )}
-              onClick={() => setSelectedFloorId(fp.id)}
+              onClick={() => {
+                setSelectedFloorId(fp.id);
+                setViewMode("3d");
+              }}
             >
               {getFloorLabel(fp.floor)}
               {fp.totalArea != null && (
@@ -164,14 +190,20 @@ export function FloorPlanViewer({
 
       <Separator />
 
-      <CardContent className="p-0">
-        <div className="relative min-h-[400px] max-h-[600px] h-[50vh]">
+      <CardContent className={cn("p-0", isFullscreen && "flex-1")}>
+        <div
+          className={cn(
+            "relative min-h-[400px] max-h-[600px] h-[50vh]",
+            isFullscreen && "min-h-0 max-h-none h-full"
+          )}
+        >
           {sceneData ? (
             <PropertyEditor
               propertyId={propertyId}
               floorPlanId={selectedFloor?.id}
               initialScene={sceneData}
               readOnly
+              viewMode={viewMode}
             />
           ) : (
             <div className="flex items-center justify-center h-full bg-muted/20">

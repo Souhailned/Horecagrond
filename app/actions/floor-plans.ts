@@ -12,29 +12,32 @@ import { Prisma } from "@/generated/prisma/client";
 // ---------------------------------------------------------------------------
 
 const saveFloorPlanSchema = z.object({
-  propertyId: z.string().min(1, "Property ID is verplicht"),
+  propertyId: z.string().cuid(),
   floor: z.number().int().min(-5).max(100),
   name: z.string().min(1, "Naam is verplicht").max(100).trim(),
-  sceneData: z.record(z.string(), z.unknown()),
+  sceneData: z.object({
+    nodes: z.record(z.string(), z.unknown()),
+    rootNodeIds: z.array(z.string()),
+  }),
   totalArea: z.number().min(0).max(100_000).optional(),
   zones: z.record(z.string(), z.unknown()).optional(),
 });
 
 const getFloorPlanSchema = z.object({
-  propertyId: z.string().min(1),
+  propertyId: z.string().cuid(),
   floor: z.number().int(),
 });
 
 const getFloorPlansSchema = z.object({
-  propertyId: z.string().min(1),
+  propertyId: z.string().cuid(),
 });
 
 const deleteFloorPlanSchema = z.object({
-  id: z.string().min(1),
+  id: z.string().cuid(),
 });
 
 const updateThumbnailSchema = z.object({
-  id: z.string().min(1),
+  id: z.string().cuid(),
   thumbnailUrl: z.string().url("Ongeldige URL"),
 });
 
@@ -145,6 +148,11 @@ export async function getFloorPlan(
   input: z.infer<typeof getFloorPlanSchema>
 ): Promise<ActionResult<FloorPlanData>> {
   try {
+    // Auth + permission
+    const authCheck = await requirePermission("floorplans:view");
+    if (!authCheck.success) return { success: false, error: authCheck.error };
+    const { userId, role } = authCheck.data!;
+
     // Validate input
     const validated = getFloorPlanSchema.safeParse(input);
     if (!validated.success) {
@@ -153,13 +161,10 @@ export async function getFloorPlan(
 
     const { propertyId, floor } = validated.data;
 
-    // Verify property exists
-    const property = await prisma.property.findUnique({
-      where: { id: propertyId },
-      select: { id: true },
-    });
+    // Verify property access
+    const property = await verifyPropertyAccess(propertyId, userId, role);
     if (!property) {
-      return { success: false, error: "Pand niet gevonden" };
+      return { success: false, error: "Pand niet gevonden of geen toegang" };
     }
 
     const floorPlan = await prisma.propertyFloorPlan.findUnique({
@@ -187,6 +192,11 @@ export async function getFloorPlans(
   input: z.infer<typeof getFloorPlansSchema>
 ): Promise<ActionResult<FloorPlanData[]>> {
   try {
+    // Auth + permission
+    const authCheck = await requirePermission("floorplans:view");
+    if (!authCheck.success) return { success: false, error: authCheck.error };
+    const { userId, role } = authCheck.data!;
+
     // Validate input
     const validated = getFloorPlansSchema.safeParse(input);
     if (!validated.success) {
@@ -195,13 +205,10 @@ export async function getFloorPlans(
 
     const { propertyId } = validated.data;
 
-    // Verify property exists
-    const property = await prisma.property.findUnique({
-      where: { id: propertyId },
-      select: { id: true },
-    });
+    // Verify property access
+    const property = await verifyPropertyAccess(propertyId, userId, role);
     if (!property) {
-      return { success: false, error: "Pand niet gevonden" };
+      return { success: false, error: "Pand niet gevonden of geen toegang" };
     }
 
     const floorPlans = await prisma.propertyFloorPlan.findMany({

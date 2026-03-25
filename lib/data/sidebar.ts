@@ -3,6 +3,7 @@ import type { UserRole } from "@/types/user";
 export type NavItemId =
   | "dashboard"
   | "panden"
+  | "plattegronden"
   | "leads"
   | "projects"
   | "tasks"
@@ -12,7 +13,8 @@ export type NavItemId =
   | "favorieten"
   | "alerts"
   | "zoeken"
-  | "vergelijk";
+  | "vergelijk"
+  | "intelligence";
 
 export type SidebarFooterItemId = "settings" | "help";
 
@@ -41,12 +43,16 @@ export const navItems: NavItem[] = [
 
   // Agent items
   { id: "panden", label: "Mijn Panden", href: "/dashboard/panden", roles: ["agent", "admin"] },
+  { id: "plattegronden", label: "Plattegronden", href: "/dashboard/plattegronden", roles: ["agent", "admin"] },
   { id: "leads", label: "Leads", href: "/dashboard/leads", roles: ["agent", "admin"] },
   { id: "projects", label: "Projects", href: "/dashboard/projects", roles: ["agent", "admin"] },
   { id: "tasks", label: "My Tasks", href: "/dashboard/tasks", roles: ["agent", "admin"] },
   { id: "analytics", label: "Analytics", href: "/dashboard/analytics", roles: ["agent", "admin"] },
   { id: "images", label: "Images", href: "/dashboard/images", roles: ["agent", "admin"] },
   { id: "videos", label: "Video's", href: "/dashboard/videos", roles: ["agent", "admin"] },
+
+  // Intelligence (all roles — makelaar scant voor klanten, seeker self-service)
+  { id: "intelligence", label: "Intelligence", href: "/dashboard/intelligence", roles: ["agent", "seeker", "admin"] },
 
   // Seeker items
   { id: "zoeken", label: "Zoeken", href: "/aanbod", roles: ["seeker"] },

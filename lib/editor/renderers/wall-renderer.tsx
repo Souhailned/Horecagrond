@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { memo, useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { WallMaterial, WallNode } from '../schema';
@@ -9,19 +9,17 @@ interface WallRendererProps {
   node: WallNode;
   selected: boolean;
   onSelect: (id: string) => void;
+  materialColors: Record<WallMaterial, string>;
+  selectedColor: string;
 }
 
-/** Hex color per wall material */
-const MATERIAL_COLORS: Record<WallMaterial, string> = {
-  brick: '#b87333',
-  glass: '#87ceeb',
-  drywall: '#f5f5f0',
-  concrete: '#808080',
-};
-
-const SELECTED_COLOR = '#3b82f6';
-
-export function WallRenderer({ node, selected, onSelect }: WallRendererProps) {
+function WallRendererInner({
+  node,
+  selected,
+  onSelect,
+  materialColors,
+  selectedColor,
+}: WallRendererProps) {
   const meshRef = useRef<THREE.Mesh>(null);
 
   const { length, midpoint, angle } = useMemo(() => {
@@ -42,9 +40,15 @@ export function WallRenderer({ node, selected, onSelect }: WallRendererProps) {
     [length, node.height, node.thickness],
   );
 
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
+
   const materialColor = selected
-    ? SELECTED_COLOR
-    : MATERIAL_COLORS[node.material];
+    ? selectedColor
+    : materialColors[node.material];
 
   const isGlass = node.material === 'glass';
 
@@ -71,3 +75,13 @@ export function WallRenderer({ node, selected, onSelect }: WallRendererProps) {
     </mesh>
   );
 }
+
+export const WallRenderer = memo(WallRendererInner, (prev, next) => {
+  return (
+    prev.node === next.node &&
+    prev.selected === next.selected &&
+    prev.onSelect === next.onSelect &&
+    prev.materialColors === next.materialColors &&
+    prev.selectedColor === next.selectedColor
+  );
+});

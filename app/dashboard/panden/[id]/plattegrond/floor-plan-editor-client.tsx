@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
+import { useState, useCallback, useEffect, useTransition } from "react";
 import dynamic from "next/dynamic";
 import { saveFloorPlan, deleteFloorPlan } from "@/app/actions/floor-plans";
 import type { FloorPlanData } from "@/app/actions/floor-plans";
 import type { SceneData } from "@/lib/editor/schema";
 import { useSceneMeasurements } from "@/lib/editor/systems";
+import { useSceneStore } from "@/lib/editor/stores";
+import { useDebouncedCallback } from "use-debounce";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Plus, Trash2, Layers } from "lucide-react";
@@ -82,6 +84,13 @@ export function FloorPlanEditorClient({
   const measurements = useSceneMeasurements();
 
   const activeFloorPlan = floorPlans.find((fp) => fp.floor === activeFloor);
+
+  // -------------------------------------------------------------------------
+  // Auto-save state
+  // -------------------------------------------------------------------------
+
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // -------------------------------------------------------------------------
   // Add floor
@@ -174,7 +183,7 @@ export function FloorPlanEditorClient({
           propertyId,
           floor: activeFloorPlan.floor,
           name: activeFloorPlan.name,
-          sceneData: scene as unknown as Record<string, unknown>,
+          sceneData: { nodes: (scene as SceneData).nodes as unknown as Record<string, unknown>, rootNodeIds: (scene as SceneData).rootNodeIds },
           totalArea: measurements.totalArea,
           zones: zoneSummaries,
         });
@@ -201,6 +210,30 @@ export function FloorPlanEditorClient({
     },
     [activeFloorPlan, measurements, propertyId]
   );
+
+  // -------------------------------------------------------------------------
+  // Auto-save with debounce (3s after last scene change)
+  // -------------------------------------------------------------------------
+
+  const debouncedAutoSave = useDebouncedCallback(() => {
+    if (!activeFloorPlan) return;
+    setIsSaving(true);
+    const scene = useSceneStore.getState().exportScene();
+    handleSave(scene);
+    setLastSaved(new Date());
+    setIsSaving(false);
+  }, 3000);
+
+  // Subscribe to scene store changes
+  useEffect(() => {
+    const unsub = useSceneStore.subscribe((state) => {
+      // Only auto-save when there are nodes (non-empty scene)
+      if (Object.keys(state.nodes).length > 0) {
+        debouncedAutoSave();
+      }
+    });
+    return () => unsub();
+  }, [debouncedAutoSave]);
 
   // -------------------------------------------------------------------------
   // Empty state
@@ -232,7 +265,7 @@ export function FloorPlanEditorClient({
   // -------------------------------------------------------------------------
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col h-full min-h-0">
       {/* Floor selector bar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/30 overflow-x-auto">
         <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -306,11 +339,23 @@ export function FloorPlanEditorClient({
             {measurements.totalArea.toFixed(1)} m² totaal
           </span>
         )}
+
+        {/* Auto-save indicator */}
+        {lastSaved && (
+          <span className={cn(
+            "text-xs text-muted-foreground shrink-0",
+            !(activeFloorPlan && measurements.totalArea > 0) && "ml-auto"
+          )}>
+            {isSaving
+              ? "Opslaan..."
+              : `Opgeslagen ${lastSaved.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}`}
+          </span>
+        )}
       </div>
 
       {/* Editor */}
       {activeFloorPlan && (
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 overflow-hidden relative">
           <PropertyEditor
             key={activeFloorPlan.id}
             propertyId={propertyId}

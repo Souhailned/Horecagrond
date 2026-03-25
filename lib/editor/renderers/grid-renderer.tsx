@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { Grid } from '@react-three/drei';
 
 interface GridRendererProps {
@@ -9,15 +10,21 @@ interface GridRendererProps {
   cellSize?: number;
   /** Whether the grid is visible */
   visible?: boolean;
+  /** Override cell line color */
+  cellColor?: string;
+  /** Override section line color */
+  sectionColor?: string;
 }
 
-const GRID_CELL_COLOR = '#888888';
-const GRID_SECTION_COLOR = '#555555';
+const DEFAULT_CELL_COLOR = '#888888';
+const DEFAULT_SECTION_COLOR = '#555555';
 
-export function GridRenderer({
+function GridRendererInner({
   size = 30,
   cellSize = 1,
   visible = true,
+  cellColor,
+  sectionColor,
 }: GridRendererProps) {
   if (!visible) return null;
 
@@ -27,10 +34,10 @@ export function GridRenderer({
       args={[size, size]}
       cellSize={cellSize}
       cellThickness={0.5}
-      cellColor={GRID_CELL_COLOR}
+      cellColor={cellColor ?? DEFAULT_CELL_COLOR}
       sectionSize={cellSize * 5}
       sectionThickness={1.2}
-      sectionColor={GRID_SECTION_COLOR}
+      sectionColor={sectionColor ?? DEFAULT_SECTION_COLOR}
       fadeDistance={size * 0.8}
       fadeStrength={1.5}
       fadeFrom={1}
@@ -38,3 +45,5 @@ export function GridRenderer({
     />
   );
 }
+
+export const GridRenderer = memo(GridRendererInner);

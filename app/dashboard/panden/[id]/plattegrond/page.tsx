@@ -1,6 +1,5 @@
-import { redirect, notFound } from "next/navigation";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { requirePagePermission } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import {
@@ -19,11 +18,10 @@ export default async function PlattegrondPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) redirect("/sign-in");
+  const { userId, role } = await requirePagePermission("floorplans:manage");
 
   const property = await prisma.property.findFirst({
-    where: { id, createdById: session.user.id },
+    where: { id, ...(role !== "admin" ? { createdById: userId } : {}) },
     select: {
       id: true,
       title: true,
@@ -36,7 +34,7 @@ export default async function PlattegrondPage({
   if (!property) notFound();
 
   return (
-    <ContentCard>
+    <ContentCard className="!h-[calc(100vh-theme(spacing.6))] !flex-none">
       <ContentCardHeader
         title={`Plattegrond - ${property.title}`}
         actions={
@@ -48,12 +46,12 @@ export default async function PlattegrondPage({
           </Link>
         }
       />
-      <ContentCardBody>
+      <div className="flex-1 min-h-0 overflow-hidden">
         <FloorPlanEditorClient
           propertyId={property.id}
           initialFloorPlans={property.floorPlans as FloorPlanData[]}
         />
-      </ContentCardBody>
+      </div>
     </ContentCard>
   );
 }

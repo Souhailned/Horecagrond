@@ -41,6 +41,35 @@
   --sidebar-border: oklch(0.93 0 0);
   --sidebar-ring: oklch(0.43 0.215 254.5);
   --shadow-workstream: 0 0 4px 3px oklch(1 0 0 / 0.69) inset, 0 88px 58.5px 0 oklch(0 0 0 / 0.03);
+
+  /* Editor: Zone colors */
+  --editor-zone-dining: oklch(0.65 0.17 145);
+  --editor-zone-bar: oklch(0.72 0.16 60);
+  --editor-zone-kitchen: oklch(0.58 0.22 25);
+  --editor-zone-storage: oklch(0.65 0 0);
+  --editor-zone-terrace: oklch(0.72 0.15 130);
+  --editor-zone-entrance: oklch(0.65 0.15 230);
+  --editor-zone-restroom: oklch(0.52 0.18 300);
+  --editor-zone-office: oklch(0.48 0.16 265);
+  --editor-zone-prep-area: oklch(0.6 0.2 35);
+  --editor-zone-walk-in-cooler: oklch(0.65 0.12 200);
+  --editor-zone-seating-outside: oklch(0.75 0.14 100);
+  --editor-zone-hallway: oklch(0.55 0.02 250);
+  /* Editor: Wall materials */
+  --editor-wall-brick: oklch(0.6 0.1 55);
+  --editor-wall-glass: oklch(0.78 0.06 220);
+  --editor-wall-drywall: oklch(0.95 0.005 90);
+  --editor-wall-concrete: oklch(0.6 0 0);
+  /* Editor: Item categories */
+  --editor-item-table: oklch(0.45 0.08 55);
+  --editor-item-seating: oklch(0.78 0.06 70);
+  --editor-item-kitchen: oklch(0.8 0 0);
+  --editor-item-bar: oklch(0.38 0.05 55);
+  --editor-item-decor: oklch(0.5 0.15 145);
+  /* Editor: Grid & floor */
+  --editor-grid-cell: oklch(0.6 0 0);
+  --editor-grid-section: oklch(0.4 0 0);
+  --editor-floor-plane: oklch(0.97 0 0);
 }
 
 /* ════════════════════════════════════════ */
@@ -80,6 +109,35 @@
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
   --shadow-workstream: 0 0 4px 3px oklch(1 0 0 / 0.1) inset, 0 88px 58.5px 0 oklch(0 0 0 / 0.03);
+
+  /* Editor: Zone colors (dimmed for dark bg) */
+  --editor-zone-dining: oklch(0.55 0.13 145);
+  --editor-zone-bar: oklch(0.6 0.13 60);
+  --editor-zone-kitchen: oklch(0.5 0.17 25);
+  --editor-zone-storage: oklch(0.5 0 0);
+  --editor-zone-terrace: oklch(0.6 0.12 130);
+  --editor-zone-entrance: oklch(0.55 0.12 230);
+  --editor-zone-restroom: oklch(0.45 0.14 300);
+  --editor-zone-office: oklch(0.42 0.13 265);
+  --editor-zone-prep-area: oklch(0.5 0.16 35);
+  --editor-zone-walk-in-cooler: oklch(0.55 0.1 200);
+  --editor-zone-seating-outside: oklch(0.62 0.11 100);
+  --editor-zone-hallway: oklch(0.45 0.02 250);
+  /* Editor: Wall materials (dimmed) */
+  --editor-wall-brick: oklch(0.5 0.08 55);
+  --editor-wall-glass: oklch(0.65 0.05 220);
+  --editor-wall-drywall: oklch(0.75 0.005 90);
+  --editor-wall-concrete: oklch(0.5 0 0);
+  /* Editor: Item categories (dimmed) */
+  --editor-item-table: oklch(0.4 0.06 55);
+  --editor-item-seating: oklch(0.65 0.05 70);
+  --editor-item-kitchen: oklch(0.65 0 0);
+  --editor-item-bar: oklch(0.33 0.04 55);
+  --editor-item-decor: oklch(0.45 0.12 145);
+  /* Editor: Grid & floor (inverted for dark) */
+  --editor-grid-cell: oklch(0.4 0 0);
+  --editor-grid-section: oklch(0.55 0 0);
+  --editor-floor-plane: oklch(0.2 0 0);
 }
 
 @theme inline {
