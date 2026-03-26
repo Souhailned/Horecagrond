@@ -20,6 +20,10 @@ import {
   Sofa,
   RectangleHorizontal,
   SquareDashed,
+  ArrowUp,
+  ArrowDown,
+  Scissors,
+  List,
 } from "lucide-react";
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -32,7 +36,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { useEditorStore, useSceneStore } from "@/lib/editor/stores";
-import type { EditorTool, EditorPhase, ViewMode } from "@/lib/editor/stores";
+import type { EditorTool, EditorPhase, ViewMode, WallMode } from "@/lib/editor/stores";
 import { cn } from "@/lib/utils";
 import { captureCanvasAsPng, downloadDataUrl } from "@/lib/editor/utils";
 import { toast } from "sonner";
@@ -73,6 +77,10 @@ export function EditorToolbar({ onSave, readOnly }: EditorToolbarProps) {
   const setViewMode = useEditorStore((s) => s.setViewMode);
   const phase = useEditorStore((s) => s.phase);
   const setPhase = useEditorStore((s) => s.setPhase);
+  const wallMode = useEditorStore((s) => s.wallMode);
+  const setWallMode = useEditorStore((s) => s.setWallMode);
+  const sceneSidebarOpen = useEditorStore((s) => s.sceneSidebarOpen);
+  const toggleSceneSidebar = useEditorStore((s) => s.toggleSceneSidebar);
 
   // Filter tools based on current phase
   const filteredTools = useMemo(
@@ -236,6 +244,60 @@ export function EditorToolbar({ onSave, readOnly }: EditorToolbarProps) {
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">Opnieuw uitvoeren</TooltipContent>
+      </Tooltip>
+
+      <Separator orientation="vertical" className="h-6" />
+
+      {/* Wall mode toggle */}
+      <ToggleGroup
+        type="single"
+        value={wallMode}
+        onValueChange={(value) => {
+          if (value) setWallMode(value as WallMode);
+        }}
+        variant="outline"
+        size="sm"
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <ToggleGroupItem value="up" aria-label="Muren zichtbaar">
+              <ArrowUp className="size-4" />
+            </ToggleGroupItem>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Muren zichtbaar</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <ToggleGroupItem value="cutaway" aria-label="Muren doorsnede">
+              <Scissors className="size-4" />
+            </ToggleGroupItem>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Muren doorsnede</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <ToggleGroupItem value="down" aria-label="Muren verbergen">
+              <ArrowDown className="size-4" />
+            </ToggleGroupItem>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Muren verbergen</TooltipContent>
+        </Tooltip>
+      </ToggleGroup>
+
+      {/* Scene sidebar toggle */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Toggle
+            variant="outline"
+            size="sm"
+            pressed={sceneSidebarOpen}
+            onPressedChange={toggleSceneSidebar}
+            aria-label="Scene overzicht"
+          >
+            <List className="size-4" />
+          </Toggle>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Scene overzicht</TooltipContent>
       </Tooltip>
 
       <Separator orientation="vertical" className="h-6" />

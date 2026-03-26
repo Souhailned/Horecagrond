@@ -11,6 +11,9 @@ import { DoorRenderer } from './door-renderer';
 import { WindowRenderer } from './window-renderer';
 import { SlabRenderer } from './slab-renderer';
 import { CeilingRenderer } from './ceiling-renderer';
+import { ScanRenderer } from './scan-renderer';
+import { GuideRenderer } from './guide-renderer';
+import { RoofSegmentRenderer } from './roof-segment-renderer';
 import { GridRenderer } from './grid-renderer';
 import { SiteRenderer } from './site-renderer';
 import { BuildingRenderer } from './building-renderer';
@@ -103,7 +106,7 @@ export function SceneRenderer() {
         kitchen: colors.itemKitchen,
         bar: colors.itemBar,
         decor: colors.itemDecor,
-      }) as Record<ItemCategory, string>,
+      }) as Partial<Record<ItemCategory, string>>,
     [colors.itemTable, colors.itemSeating, colors.itemKitchen, colors.itemBar, colors.itemDecor],
   );
 
@@ -198,10 +201,35 @@ export function SceneRenderer() {
           />
         );
       case 'roof-segment':
+        return (
+          <RoofSegmentRenderer
+            key={node.id}
+            node={node}
+            selected={isSelected}
+            hovered={isHovered}
+            selectedColor={colors.selected}
+          />
+        );
       case 'scan':
+        return (
+          <ScanRenderer
+            key={node.id}
+            node={node}
+            selected={isSelected}
+            hovered={isHovered}
+            selectedColor={colors.selected}
+          />
+        );
       case 'guide':
-        // Renderers for these types not yet implemented; skip for now
-        return null;
+        return (
+          <GuideRenderer
+            key={node.id}
+            node={node}
+            selected={isSelected}
+            hovered={isHovered}
+            selectedColor={colors.selected}
+          />
+        );
       default:
         return null;
     }

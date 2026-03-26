@@ -39,6 +39,9 @@ import {
 } from "@/lib/editor/events";
 import { EditorOutlines } from "@/lib/editor/effects";
 import { WallLabels } from "@/lib/editor/renderers";
+import { WallCutawaySystem } from "@/lib/editor/systems/wall-cutaway";
+import { RoofSystem } from "@/lib/editor/systems/roof-system";
+import { InteractiveSystem } from "@/lib/editor/systems/interactive-system";
 import { EditorToolbar } from "./editor-toolbar";
 import { AssetPanel } from "./asset-panel";
 import { PropertiesPanel } from "./properties-panel";
@@ -49,6 +52,8 @@ import { NodeContextMenu } from "./node-context-menu";
 import { EditorEmptyState } from "./editor-empty-state";
 import { TemplateDialog } from "./template-dialog";
 import { AiGenerateDialog } from "./ai-generate-dialog";
+import { SceneSidebar } from "./scene-sidebar";
+import { FloorplanMinimap } from "./floorplan-minimap";
 
 /* ------------------------------------------------------------------ */
 /* Error Boundary                                                      */
@@ -729,6 +734,7 @@ export function PropertyEditor({
       {!readOnly && <EditorToolbar onSave={handleSave} />}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {!readOnly && <AssetPanel />}
+        {!readOnly && <SceneSidebar />}
         <NodeContextMenu>
         <div className="relative min-h-0 flex-1 bg-muted/30 z-0">
           <EditorErrorBoundary>
@@ -747,6 +753,9 @@ export function PropertyEditor({
               <SceneRenderer />
               <WallSystem />
               <LevelSystem />
+              <WallCutawaySystem />
+              <RoofSystem />
+              <InteractiveSystem />
               <EditorOutlines />
               <WallLabels />
               <FloorPlane floorColor={colors.floorPlane} />
@@ -770,6 +779,8 @@ export function PropertyEditor({
           <div className="absolute top-2 left-2 z-10 max-w-[220px]">
             <ZoneLegend />
           </div>
+          {/* 2D minimap — floating overlay bottom-left on canvas */}
+          <FloorplanMinimap />
           {/* Empty state overlay — shown when no nodes exist */}
           {!readOnly && (
             <>

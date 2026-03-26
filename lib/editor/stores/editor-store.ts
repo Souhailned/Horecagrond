@@ -24,6 +24,9 @@ export type EditorPhase = "structure" | "furnish";
 /** How multi-level buildings are displayed in the 3D view */
 export type LevelMode = "stacked" | "exploded" | "solo";
 
+/** Wall display mode for cutaway views */
+export type WallMode = "up" | "cutaway" | "down";
+
 interface EditorState {
   activeTool: EditorTool;
   selectedNodeIds: string[];
@@ -48,9 +51,15 @@ interface EditorState {
   activeLevelIndex: number;
   /** Current editor phase — determines available tools and selection behavior */
   phase: EditorPhase;
+  /** Wall display mode for cutaway views */
+  wallMode: WallMode;
+  /** Whether the scene sidebar (tree view) is visible */
+  sceneSidebarOpen: boolean;
 
   // Actions
   setPhase: (phase: EditorPhase) => void;
+  setWallMode: (mode: WallMode) => void;
+  toggleSceneSidebar: () => void;
   setCameraDragging: (dragging: boolean) => void;
   setLevelMode: (mode: LevelMode) => void;
   setActiveLevel: (index: number) => void;
@@ -90,6 +99,11 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   levelMode: "stacked",
   activeLevelIndex: 0,
   phase: "structure",
+  wallMode: "up",
+  sceneSidebarOpen: false,
+
+  setWallMode: (mode) => set({ wallMode: mode }),
+  toggleSceneSidebar: () => set((state) => ({ sceneSidebarOpen: !state.sceneSidebarOpen })),
 
   setPhase: (phase) => {
     // When switching phases, reset to select tool and cancel any in-progress drawing

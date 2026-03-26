@@ -9,3 +9,6 @@ export { CeilingSystem } from "./ceiling-system";
 export { getWallOpenings, subtractOpenings } from "./wall-csg";
 export { useSceneMeasurements } from "./measurement-system";
 export type { ZoneSummary, SceneMeasurements } from "./measurement-system";
+export { WallCutawaySystem } from "./wall-cutaway";
+export { RoofSystem } from "./roof-system";
+export { InteractiveSystem } from "./interactive-system";
