@@ -10,10 +10,9 @@ import {
   transformToSceneData,
   parseLlmResponse,
   VALID_ZONE_TYPES,
-  VALID_ITEM_TYPES,
   type LlmZone,
-  type LlmItem,
 } from "@/lib/editor/ai-transform";
+import { getCatalogAsset } from "@/lib/editor/catalog-lookup";
 import prisma from "@/lib/prisma";
 import type { ActionResult } from "@/types/actions";
 import type { SceneData } from "@/lib/editor/schema";
@@ -23,13 +22,10 @@ import type { SceneData } from "@/lib/editor/schema";
 // ---------------------------------------------------------------------------
 
 const generateFloorPlanSchema = z.object({
+  description: z.string().min(1).max(2000),
   surfaceTotal: z.number().min(10).max(10000),
   propertyType: z.string(),
-  floors: z.number().int().min(1).max(5).default(1),
   seatingCapacityInside: z.number().optional(),
-  hasTerrace: z.boolean().default(false),
-  hasKitchen: z.boolean().default(true),
-  hasStorage: z.boolean().default(true),
 });
 
 type GenerateFloorPlanInput = z.infer<typeof generateFloorPlanSchema>;
@@ -40,20 +36,97 @@ type GenerateFloorPlanInput = z.infer<typeof generateFloorPlanSchema>;
 
 const typeLabels: Record<string, string> = {
   RESTAURANT: "restaurant",
-  CAFE: "café",
+  CAFE: "cafe",
   BAR: "bar",
   HOTEL: "hotel",
-  EETCAFE: "eetcafé",
+  EETCAFE: "eetcafe",
   LUNCHROOM: "lunchroom",
   KOFFIEBAR: "koffiebar",
   PIZZERIA: "pizzeria",
   BAKERY: "bakkerij",
   DARK_KITCHEN: "dark kitchen",
   SNACKBAR: "snackbar",
-  GRAND_CAFE: "grand café",
+  GRAND_CAFE: "grand cafe",
   COCKTAILBAR: "cocktailbar",
   NIGHTCLUB: "nachtclub",
 };
+
+// ---------------------------------------------------------------------------
+// Catalog prompt builder
+// ---------------------------------------------------------------------------
+
+/**
+ * All catalog item IDs available for floor plan generation.
+ * These map directly to 3D GLB models in the Pascal editor.
+ */
+const CATALOG_ITEMS_FOR_PROMPT = [
+  // Dining
+  { id: "dining-table", desc: "Dining table (2.5m x 1.0m), seats 4-6 people" },
+  { id: "dining-chair", desc: "Chair (0.5m x 0.5m), place around dining-tables" },
+  { id: "coffee-table", desc: "Coffee table (2.0m x 1.5m), for lounge areas" },
+  { id: "sofa", desc: "Sofa (2.5m x 1.5m), for lounge/waiting areas" },
+  { id: "lounge-chair", desc: "Lounge chair (1.0m x 1.5m), for lounge areas" },
+  { id: "stool", desc: "Bar stool (1.0m x 1.0m), place at counters/bars" },
+  // Kitchen
+  { id: "kitchen-counter", desc: "Kitchen counter (2.0m x 1.0m), place along walls" },
+  { id: "kitchen-cabinet", desc: "Kitchen cabinet (2.0m x 1.0m), wall storage" },
+  { id: "kitchen", desc: "Full kitchen unit (2.5m x 1.0m)" },
+  { id: "stove", desc: "Stove/cooker (1.0m x 1.0m)" },
+  { id: "fridge", desc: "Refrigerator (1.0m x 1.0m)" },
+  { id: "microwave", desc: "Microwave (1.0m x 0.5m)" },
+  { id: "coffee-machine", desc: "Coffee machine (0.5m x 0.5m)" },
+  // Bathroom
+  { id: "toilet", desc: "Toilet (1.0m x 1.0m)" },
+  { id: "bathroom-sink", desc: "Bathroom sink (2.0m x 1.5m)" },
+  // Decor & fixtures
+  { id: "coat-rack", desc: "Coat rack (0.5m x 0.5m), for entrance/hallway" },
+  { id: "trash-bin", desc: "Trash bin (0.5m x 0.5m)" },
+  { id: "indoor-plant", desc: "Indoor plant (1.0m x 1.0m), decorative" },
+  { id: "floor-lamp", desc: "Floor lamp (1.0m x 1.0m)" },
+  { id: "bookshelf", desc: "Bookshelf (1.0m x 0.5m), for storage/decor" },
+  { id: "wine-bottle", desc: "Wine bottle display (0.5m x 0.5m), for bar decor" },
+  // Outdoor
+  { id: "patio-umbrella", desc: "Patio umbrella (0.5m x 0.5m), for terraces" },
+  // Office
+  { id: "office-table", desc: "Office table (2.0m x 1.0m)" },
+  { id: "office-chair", desc: "Office chair (1.0m x 1.0m)" },
+] as const;
+
+function buildCatalogPrompt(): string {
+  const lines = CATALOG_ITEMS_FOR_PROMPT.map((item) => {
+    // Verify item exists in catalog at build time
+    const asset = getCatalogAsset(item.id);
+    if (!asset) return `- ${item.id}: ${item.desc}`;
+    const [w, , d] = asset.dimensions;
+    return `- ${item.id}: ${item.desc} [${w}m x ${d}m footprint]`;
+  });
+  return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Zone types prompt builder
+// ---------------------------------------------------------------------------
+
+function buildZoneTypesPrompt(): string {
+  const validZoneTypes = Array.from(VALID_ZONE_TYPES);
+  const descriptions: Record<string, string> = {
+    dining_area: "Main eating area with tables and chairs",
+    bar_area: "Bar counter area with stools, drinks equipment",
+    kitchen: "Professional kitchen with cooking equipment",
+    storage: "Storage room for supplies",
+    terrace: "Outdoor seating area (placed at negative y, in front of building)",
+    entrance: "Entrance/reception area near y=0",
+    restroom: "Toilet facilities",
+    office: "Back office / management area",
+    prep_area: "Food preparation area separate from main kitchen",
+    walk_in_cooler: "Cold storage room",
+    seating_outside: "Outdoor seating (garden/patio)",
+    hallway: "Connecting corridor between zones",
+  };
+  return validZoneTypes
+    .map((t) => `- ${t}: ${descriptions[t] ?? t.replace(/_/g, " ")}`)
+    .join("\n");
+}
 
 // ---------------------------------------------------------------------------
 // LLM prompt
@@ -63,21 +136,59 @@ function buildPrompt(input: GenerateFloorPlanInput): string {
   const type = typeLabels[input.propertyType] || input.propertyType.toLowerCase();
   const widthEstimate = Math.round(Math.sqrt(input.surfaceTotal) * 1.2);
   const lengthEstimate = Math.round(input.surfaceTotal / widthEstimate);
-  const validZoneTypes = Array.from(VALID_ZONE_TYPES).join(", ");
-  const validItemTypes = Array.from(VALID_ITEM_TYPES).join(", ");
+  const seating = input.seatingCapacityInside;
+  const seatingText = seating ? `${seating} zitplaatsen` : "not specified";
+  const tablesNeeded = seating ? Math.ceil(seating / 4) : null;
 
-  return `You are a horeca floor plan generator. Generate a realistic JSON floor plan layout for a ${type}.
+  return `You are an expert horeca floor plan architect. You generate detailed, realistic floor plans for hospitality venues.
 
-Property details:
-- Total surface: ${input.surfaceTotal} m²
+The user wants to create a floor plan for a **${type}**.
+
+## User Description
+"${input.description}"
+
+## Property Constraints
+- Total surface: ${input.surfaceTotal} m2
 - Estimated building dimensions: approx ${widthEstimate}m wide x ${lengthEstimate}m deep
-- Floors: ${input.floors}
-- Seating capacity inside: ${input.seatingCapacityInside ?? "not specified"}
-- Has terrace: ${input.hasTerrace}
-- Has kitchen: ${input.hasKitchen}
-- Has storage: ${input.hasStorage}
+- Seating capacity inside: ${seatingText}${tablesNeeded ? ` (= ${tablesNeeded} dining tables + ${seating} chairs)` : ""}
 
-Output ONLY valid JSON matching this exact structure (no text before or after):
+## Available Zone Types
+${buildZoneTypesPrompt()}
+
+## Available Furniture (use these exact catalogId values)
+${buildCatalogPrompt()}
+
+## Seating Capacity Rules
+- 1 dining-table seats 4 people. For N seats: use ceil(N/4) dining-tables + N dining-chairs.
+- 1 stool per 1m of bar counter (kitchen-counter). For a 4m bar: 2 kitchen-counters + 4 stools.
+- Lounge seating: 1 coffee-table + 2 lounge-chairs or 1 sofa per lounge group.
+
+## Zone Layout Rules
+- Zones MUST tile to fill the building without overlapping.
+- Entrance zone near y=0 (front of building).
+- Kitchen goes toward the back.
+- Terrace zones go at negative y values (in front of the building).
+- Zone sizes should be proportional:
+  - Dining: 40-60% of total area
+  - Kitchen: 15-25%
+  - Restroom: 5-10%
+  - Entrance: 3-8%
+  - Bar/storage/office: remainder as needed
+
+## Furniture Placement Rules
+- Every zone MUST have a "furniture" array listing what goes inside.
+- Use realistic quantities. A 80m2 restaurant should have 15-25 dining tables, not 5.
+- Include decorative items (indoor-plant, floor-lamp) for atmosphere.
+- Kitchen zones need: kitchen-counter, stove, fridge at minimum.
+- Restroom zones need: toilet (2-4 depending on size), bathroom-sink.
+- Entrance needs: coat-rack, indoor-plant.
+
+## MINIMUM required zones
+Every plan MUST include: entrance, dining_area, kitchen, restroom.
+Optionally add: bar_area, terrace, storage, office, hallway — based on the user's description.
+
+## Output Format
+Output ONLY valid JSON. No text before or after. No markdown fences.
 
 {
   "buildingWidth": <number in meters>,
@@ -85,34 +196,16 @@ Output ONLY valid JSON matching this exact structure (no text before or after):
   "zones": [
     {
       "type": "<zone_type>",
-      "x": <x offset in meters from origin>,
-      "y": <y offset in meters from origin>,
+      "x": <x offset from origin>,
+      "y": <y offset from origin>,
       "width": <width in meters>,
-      "length": <length in meters>
-    }
-  ],
-  "items": [
-    {
-      "type": "<item_type>",
-      "x": <x position in meters>,
-      "y": <y position in meters>,
-      "rotation": <rotation in degrees, 0 or 90>
+      "length": <length in meters>,
+      "furniture": [
+        { "catalogId": "<item-id>", "count": <number> }
+      ]
     }
   ]
-}
-
-Valid zone types: ${validZoneTypes}.
-Valid item types: ${validItemTypes}.
-
-Rules:
-- Zones should tile to fill the building without overlapping
-- Include an entrance zone near y=0
-- Kitchen goes in the back if present
-- Add appropriate furniture items inside each zone
-- Place tables and chairs in dining areas, bar stools and bar counter in bar areas, kitchen equipment in kitchens
-- For a restaurant with ${input.seatingCapacityInside ?? 40} seats, include roughly ${Math.ceil((input.seatingCapacityInside ?? 40) / 4)} tables and ${input.seatingCapacityInside ?? 40} chairs in dining areas
-- Keep item positions within their respective zone boundaries
-- All coordinates in meters from origin (0,0)`;
+}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -122,80 +215,82 @@ Rules:
 function generateFallbackPlan(input: GenerateFloorPlanInput): SceneData {
   const w = Math.round(Math.sqrt(input.surfaceTotal) * 1.2);
   const l = Math.round(input.surfaceTotal / w);
+  const seats = input.seatingCapacityInside ?? 40;
+  const tables = Math.ceil(seats / 4);
 
   const zones: LlmZone[] = [];
   let yOffset = 0;
 
   // Entrance
-  zones.push({ type: "entrance", x: 0, y: yOffset, width: w, length: 2 });
+  zones.push({
+    type: "entrance",
+    x: 0,
+    y: yOffset,
+    width: w,
+    length: 2,
+    furniture: [
+      { catalogId: "coat-rack", count: 1 },
+      { catalogId: "indoor-plant", count: 2 },
+    ],
+  });
   yOffset += 2;
 
   // Restroom
-  zones.push({ type: "restroom", x: 0, y: yOffset, width: 3, length: 3 });
+  const restroomWidth = Math.min(4, Math.round(w * 0.25));
+  zones.push({
+    type: "restroom",
+    x: 0,
+    y: yOffset,
+    width: restroomWidth,
+    length: 3,
+    furniture: [
+      { catalogId: "toilet", count: 2 },
+      { catalogId: "bathroom-sink", count: 1 },
+      { catalogId: "trash-bin", count: 1 },
+    ],
+  });
 
   // Dining area
-  const diningWidth = w - (input.hasKitchen ? 0 : 0);
-  const kitchenLength = input.hasKitchen ? Math.max(4, Math.round(l * 0.25)) : 0;
-  const storageLength = input.hasStorage ? Math.max(2, Math.round(l * 0.1)) : 0;
-  const diningLength = l - yOffset - kitchenLength - storageLength;
+  const kitchenLength = Math.max(4, Math.round(l * 0.2));
+  const diningLength = l - yOffset - kitchenLength;
+  const diningWidth = w - restroomWidth;
 
   zones.push({
     type: "dining_area",
-    x: 3,
+    x: restroomWidth,
     y: yOffset,
-    width: diningWidth - 3,
+    width: diningWidth,
     length: diningLength,
+    furniture: [
+      { catalogId: "dining-table", count: tables },
+      { catalogId: "dining-chair", count: seats },
+      { catalogId: "indoor-plant", count: 2 },
+      { catalogId: "floor-lamp", count: 2 },
+    ],
   });
   yOffset += Math.max(diningLength, 3);
 
-  if (input.hasKitchen) {
-    zones.push({ type: "kitchen", x: 0, y: yOffset, width: w, length: kitchenLength });
-    yOffset += kitchenLength;
-  }
-
-  if (input.hasStorage) {
-    zones.push({ type: "storage", x: 0, y: yOffset, width: w, length: storageLength });
-    yOffset += storageLength;
-  }
-
-  if (input.hasTerrace) {
-    zones.push({ type: "terrace", x: 0, y: -4, width: w, length: 4 });
-  }
-
-  // Simple items: a few tables in dining area
-  const items: LlmItem[] = [];
-  const dining = zones.find((z) => z.type === "dining_area");
-  if (dining) {
-    const tables = Math.min(6, Math.floor((dining.width * dining.length) / 6));
-    for (let i = 0; i < tables; i++) {
-      const col = i % 3;
-      const row = Math.floor(i / 3);
-      const tx = dining.x + 1.5 + col * 2.5;
-      const ty = dining.y + 1.5 + row * 2.5;
-      items.push({ type: "table_square", x: tx, y: ty, rotation: 0 });
-      // Four chairs around each table
-      items.push({ type: "chair", x: tx - 0.6, y: ty, rotation: 0 });
-      items.push({ type: "chair", x: tx + 0.6, y: ty, rotation: 0 });
-      items.push({ type: "chair", x: tx, y: ty - 0.6, rotation: 90 });
-      items.push({ type: "chair", x: tx, y: ty + 0.6, rotation: 90 });
-    }
-  }
-
-  if (input.hasKitchen) {
-    const kitchen = zones.find((z) => z.type === "kitchen");
-    if (kitchen) {
-      items.push({ type: "kitchen_counter", x: kitchen.x + 1, y: kitchen.y + 1, rotation: 0 });
-      items.push({ type: "stove", x: kitchen.x + 3, y: kitchen.y + 1, rotation: 0 });
-      items.push({ type: "sink", x: kitchen.x + 4.5, y: kitchen.y + 1, rotation: 0 });
-      items.push({ type: "fridge", x: kitchen.x + 6, y: kitchen.y + 1, rotation: 0 });
-    }
-  }
+  // Kitchen
+  zones.push({
+    type: "kitchen",
+    x: 0,
+    y: yOffset,
+    width: w,
+    length: kitchenLength,
+    furniture: [
+      { catalogId: "kitchen-counter", count: 3 },
+      { catalogId: "stove", count: 2 },
+      { catalogId: "fridge", count: 2 },
+      { catalogId: "kitchen-cabinet", count: 2 },
+      { catalogId: "trash-bin", count: 1 },
+    ],
+  });
 
   return transformToSceneData({
     buildingWidth: w,
     buildingLength: l,
     zones,
-    items,
+    items: [],
   });
 }
 
@@ -235,7 +330,7 @@ export async function generateAiFloorPlan(
 
   const validInput = parsed.data;
 
-  // 5. Get LLM model (never returns null — falls back to Ollama)
+  // 5. Get LLM model (never returns null -- falls back to Ollama)
   const modelResult = await getModel();
   const model = modelResult.model;
 
@@ -251,8 +346,8 @@ export async function generateAiFloorPlan(
     const { text } = await generateText({
       model,
       prompt,
-      temperature: 0.3,
-      maxOutputTokens: 4000,
+      temperature: 0.4,
+      maxOutputTokens: 8000,
     });
 
     // 7. Parse LLM response

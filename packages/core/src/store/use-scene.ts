@@ -139,10 +139,10 @@ const useScene: UseSceneStore = create<SceneState>()(
 
         // Pre-populate the dirty set so the new Set reference already
         // contains every node ID when Zustand notifies subscribers.
-        // Previously, set() created an empty Set and markDirty() filled
-        // it via mutation *after* the state update, which meant useFrame
-        // closures could briefly capture the empty Set on re-render,
-        // causing WallSystem (and others) to skip the first rebuild.
+        // Using markDirty() after set() would mutate the Set in place
+        // without triggering Zustand subscription updates, causing
+        // useFrame closures to capture an empty Set on re-render and
+        // skip the first geometry rebuild.
         const allDirty = new Set<AnyNodeId>(
           Object.values(patchedNodes).map((node) => node.id),
         )

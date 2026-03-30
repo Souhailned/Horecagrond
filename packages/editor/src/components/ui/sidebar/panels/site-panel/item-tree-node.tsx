@@ -74,7 +74,7 @@ export function ItemTreeNode({ node, depth, isLast }: ItemTreeNodeProps) {
   }
 
   const defaultName = node.asset.name || 'Item'
-  const hasChildren = (node.children?.length ?? 0) > 0
+  const hasChildren = node.children && node.children.length > 0
 
   return (
     <TreeNodeWrapper
@@ -104,10 +104,10 @@ export function ItemTreeNode({ node, depth, isLast }: ItemTreeNodeProps) {
       onToggle={() => setExpanded(!expanded)}
     >
       {hasChildren &&
-        (node.children ?? []).map((childId, index) => (
+        node.children.map((childId, index) => (
           <TreeNode
             depth={depth + 1}
-            isLast={index === (node.children ?? []).length - 1}
+            isLast={index === node.children.length - 1}
             key={childId}
             nodeId={childId}
           />

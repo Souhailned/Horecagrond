@@ -10,7 +10,7 @@ function getAdjacentLevelIdForDeletion(levelId: AnyNodeId): LevelNode['id'] | nu
   const building = nodes[level.parentId as AnyNodeId]
   if (!building || building.type !== 'building') return null
 
-  const siblingLevelIds = ((building as BuildingNode).children ?? []).filter(
+  const siblingLevelIds = (building as BuildingNode).children.filter(
     (childId): childId is LevelNode['id'] => nodes[childId as AnyNodeId]?.type === 'level',
   )
   const currentIndex = siblingLevelIds.indexOf(level.id)

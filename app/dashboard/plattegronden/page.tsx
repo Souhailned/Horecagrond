@@ -82,7 +82,7 @@ export default async function PlattegrondenPage() {
                   {propertiesWithPlans.map((property) => (
                     <Link
                       key={property.id}
-                      href={`/dashboard/panden/${property.id}/plattegrond`}
+                      href={`/editor/${property.id}`}
                       className="group flex flex-col gap-2 rounded-lg border border-border p-4 transition-colors hover:bg-accent"
                     >
                       <div className="flex items-start justify-between">
@@ -133,7 +133,7 @@ export default async function PlattegrondenPage() {
                   {propertiesWithoutPlans.slice(0, 6).map((property) => (
                     <Link
                       key={property.id}
-                      href={`/dashboard/panden/${property.id}/plattegrond`}
+                      href={`/editor/${property.id}`}
                       className="flex items-center justify-between rounded-lg border border-dashed border-border p-3 transition-colors hover:bg-accent"
                     >
                       <div className="min-w-0">

@@ -161,7 +161,7 @@ export function EditorCommands() {
             const building = Object.values(nodes).find((n) => n.type === 'building')
             if (!building) return
             const newLevel = LevelNode.parse({
-              level: (building.children ?? []).length,
+              level: building.children.length,
               children: [],
               parentId: building.id,
             })

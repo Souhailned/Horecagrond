@@ -34,7 +34,7 @@ export function LevelTreeNode({ node, depth, isLast }: LevelTreeNodeProps) {
       actions={<TreeNodeActions node={node} />}
       depth={depth}
       expanded={expanded}
-      hasChildren={(node.children?.length ?? 0) > 0}
+      hasChildren={node.children.length > 0}
       icon={<Layers className="h-3.5 w-3.5" />}
       isHovered={isHovered}
       isLast={isLast}
@@ -52,10 +52,10 @@ export function LevelTreeNode({ node, depth, isLast }: LevelTreeNodeProps) {
       onDoubleClick={handleDoubleClick}
       onToggle={() => setExpanded(!expanded)}
     >
-      {(node.children ?? []).map((childId, index) => (
+      {node.children.map((childId, index) => (
         <TreeNode
           depth={depth + 1}
-          isLast={index === (node.children ?? []).length - 1}
+          isLast={index === node.children.length - 1}
           key={childId}
           nodeId={childId}
         />

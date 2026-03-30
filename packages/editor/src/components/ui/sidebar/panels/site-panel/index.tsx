@@ -800,7 +800,7 @@ function LevelsSection({
 
   if (!building) return null
 
-  const levels = (building.children ?? [])
+  const levels = building.children
     .map((id) => nodes[id])
     .filter((node): node is LevelNode => node?.type === 'level')
 
@@ -1224,7 +1224,7 @@ function ContentSection() {
   }
 
   // Filter elements based on phase
-  const elementChildren = (level.children ?? []).filter((childId) => {
+  const elementChildren = level.children.filter((childId) => {
     const childNode = nodes[childId]
     if (!childNode || childNode.type === 'zone') return false
 

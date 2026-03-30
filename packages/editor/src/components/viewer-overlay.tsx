@@ -108,10 +108,10 @@ export const ViewerOverlay = ({
 
   // Get all levels for the selected building
   const levels =
-    (building?.children ?? [])
+    building?.children
       .map((id) => nodes[id as AnyNodeId] as LevelNode | undefined)
       .filter((n): n is LevelNode => n?.type === 'level')
-      .sort((a, b) => a.level - b.level)
+      .sort((a, b) => a.level - b.level) ?? []
 
   const handleLevelClick = (levelId: LevelNode['id']) => {
     // When switching levels, deselect zone and items

@@ -131,16 +131,13 @@ export async function scanFloorPlanImage(
   if (!modelResult) {
     return {
       success: false,
-      error: "Geen AI model beschikbaar. Configureer GROQ_API_KEY of OPENAI_API_KEY.",
+      error: "Geen AI model beschikbaar. Configureer OPENROUTER_API_KEY, GROQ_API_KEY of OPENAI_API_KEY.",
     };
   }
 
   // 6. Analyze floor plan image via vision model
   try {
     const prompt = buildVisionPrompt(surfaceTotal);
-    const modelName = process.env.GROQ_API_KEY
-      ? "meta-llama/llama-4-scout-17b-16e-instruct"
-      : "gpt-4o-mini";
 
     const { text } = await generateText({
       model: modelResult.model,
@@ -190,11 +187,16 @@ export async function scanFloorPlanImage(
     incrementAiEditCount(authCheck.data!.userId).catch(() => {});
 
     // 11. Log AI usage (fire-and-forget)
+    const provider = process.env.OPENROUTER_API_KEY
+      ? "openrouter"
+      : process.env.GROQ_API_KEY
+        ? "groq"
+        : "openai";
     prisma.aiUsageLog.create({
       data: {
         userId: authCheck.data!.userId,
-        service: process.env.GROQ_API_KEY ? "groq" : "openai",
-        model: modelName,
+        service: provider,
+        model: modelResult.modelId,
         feature: "floor-plan-vision",
         costCents: 0,
         status: "success",

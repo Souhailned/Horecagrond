@@ -361,10 +361,7 @@ function hasUsableSceneGraph(sceneGraph?: SceneGraph | null): sceneGraph is Scen
 export function applySceneGraphToEditor(sceneGraph?: SceneGraph | null) {
   if (hasUsableSceneGraph(sceneGraph)) {
     const { nodes, rootNodeIds } = sceneGraph
-    // Defensive: ensure rootNodeIds is always a valid array before passing to the store
-    useScene
-      .getState()
-      .setScene(nodes as any, (Array.isArray(rootNodeIds) ? rootNodeIds : []) as any)
+    useScene.getState().setScene(nodes as any, rootNodeIds as any)
   } else {
     useScene.getState().clearScene()
   }

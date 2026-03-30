@@ -3091,7 +3091,7 @@ export function FloorplanPanel() {
         return [] as LevelNode[]
       }
 
-      return (buildingNode.children ?? [])
+      return buildingNode.children
         .map((childId) => state.nodes[childId])
         .filter((node): node is LevelNode => node?.type === 'level')
         .sort((a, b) => a.level - b.level)
@@ -3108,7 +3108,7 @@ export function FloorplanPanel() {
         return [] as WallNode[]
       }
 
-      return (nextLevelNode.children ?? [])
+      return nextLevelNode.children
         .map((childId) => state.nodes[childId])
         .filter((node): node is WallNode => node?.type === 'wall')
     }),
@@ -3124,12 +3124,12 @@ export function FloorplanPanel() {
         return [] as OpeningNode[]
       }
 
-      const nextWalls = (nextLevelNode.children ?? [])
+      const nextWalls = nextLevelNode.children
         .map((childId) => state.nodes[childId])
         .filter((node): node is WallNode => node?.type === 'wall')
 
       return nextWalls.flatMap((wall) =>
-        (wall.children ?? [])
+        wall.children
           .map((childId) => state.nodes[childId])
           .filter((node): node is OpeningNode => node?.type === 'window' || node?.type === 'door'),
       )
@@ -3146,7 +3146,7 @@ export function FloorplanPanel() {
         return [] as SlabNode[]
       }
 
-      return (nextLevelNode.children ?? [])
+      return nextLevelNode.children
         .map((childId) => state.nodes[childId])
         .filter((node): node is SlabNode => node?.type === 'slab')
     }),
@@ -3162,7 +3162,7 @@ export function FloorplanPanel() {
         return [] as GuideNode[]
       }
 
-      return (nextLevelNode.children ?? [])
+      return nextLevelNode.children
         .map((childId) => state.nodes[childId])
         .filter((node): node is GuideNode => node?.type === 'guide')
     }),
@@ -3178,7 +3178,7 @@ export function FloorplanPanel() {
         return [] as ZoneNodeType[]
       }
 
-      return (nextLevelNode.children ?? [])
+      return nextLevelNode.children
         .map((childId) => state.nodes[childId])
         .filter((node): node is ZoneNodeType => node?.type === 'zone')
     }),
@@ -6660,7 +6660,7 @@ export function FloorplanPanel() {
     const sceneNodes = useScene.getState().nodes
     const nextBuildingId =
       currentBuildingId ??
-      (site?.children ?? [])
+      site?.children
         .map((child) => (typeof child === 'string' ? sceneNodes[child as AnyNodeId] : child))
         .find((node): node is BuildingNode => node?.type === 'building')?.id ??
       null
@@ -6680,7 +6680,7 @@ export function FloorplanPanel() {
               return null
             }
 
-            const buildingLevels = (buildingNode.children ?? [])
+            const buildingLevels = buildingNode.children
               .map((child) => (typeof child === 'string' ? sceneNodes[child as AnyNodeId] : child))
               .filter((node): node is LevelNode => node?.type === 'level')
               .sort((a, b) => a.level - b.level)

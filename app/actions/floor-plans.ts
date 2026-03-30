@@ -150,7 +150,8 @@ export async function saveFloorPlan(
       select: { id: true },
     });
 
-    revalidatePath(`/dashboard/properties/${propertyId}`);
+    revalidatePath(`/dashboard/panden/${propertyId}`);
+    revalidatePath("/dashboard/plattegronden");
 
     return { success: true, data: { id: floorPlan.id } };
   } catch (error) {
@@ -222,7 +223,8 @@ export async function saveFloorPlansBatch(
       }
     );
 
-    revalidatePath(`/dashboard/properties/${propertyId}`);
+    revalidatePath(`/dashboard/panden/${propertyId}`);
+    revalidatePath("/dashboard/plattegronden");
     return { success: true, data: { ids: records.map((record) => record.id) } };
   } catch (error) {
     console.error("saveFloorPlansBatch error:", error);
@@ -354,7 +356,8 @@ export async function deleteFloorPlan(
       where: { id: validated.data.id },
     });
 
-    revalidatePath(`/dashboard/properties/${floorPlan.propertyId}`);
+    revalidatePath(`/dashboard/panden/${floorPlan.propertyId}`);
+    revalidatePath("/dashboard/plattegronden");
 
     return { success: true, data: undefined };
   } catch (error) {
@@ -405,7 +408,8 @@ export async function updateFloorPlanThumbnail(
       data: { thumbnailUrl: validated.data.thumbnailUrl },
     });
 
-    revalidatePath(`/dashboard/properties/${floorPlan.propertyId}`);
+    revalidatePath(`/dashboard/panden/${floorPlan.propertyId}`);
+    revalidatePath("/dashboard/plattegronden");
 
     return { success: true, data: undefined };
   } catch (error) {

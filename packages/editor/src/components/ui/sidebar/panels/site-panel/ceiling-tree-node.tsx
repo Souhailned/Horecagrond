@@ -71,7 +71,7 @@ export function CeilingTreeNode({ node, depth, isLast }: CeilingTreeNodeProps) {
       actions={<TreeNodeActions node={node} />}
       depth={depth}
       expanded={expanded}
-      hasChildren={(node.children?.length ?? 0) > 0}
+      hasChildren={node.children.length > 0}
       icon={
         <Image alt="" className="object-contain" height={14} src="/icons/ceiling.png" width={14} />
       }
@@ -95,10 +95,10 @@ export function CeilingTreeNode({ node, depth, isLast }: CeilingTreeNodeProps) {
       onMouseLeave={handleMouseLeave}
       onToggle={() => setExpanded(!expanded)}
     >
-      {(node.children ?? []).map((childId, index) => (
+      {node.children.map((childId, index) => (
         <TreeNode
           depth={depth + 1}
-          isLast={index === (node.children ?? []).length - 1}
+          isLast={index === node.children.length - 1}
           key={childId}
           nodeId={childId}
         />

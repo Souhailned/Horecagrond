@@ -233,7 +233,7 @@ const useEditor = create<EditorState>()(
           if (!buildingId) {
             const siteNode = scene.rootNodeIds[0] ? scene.nodes[scene.rootNodeIds[0]] : null
             if (siteNode?.type === 'site') {
-              const firstBuilding = (siteNode.children ?? [])
+              const firstBuilding = siteNode.children
                 .map((child) => (typeof child === 'string' ? scene.nodes[child] : child))
                 .find((node) => node?.type === 'building')
               if (firstBuilding) {
@@ -246,15 +246,15 @@ const useEditor = create<EditorState>()(
           // If no level selected, find level 0 in the building
           if (buildingId && !viewer.selection.levelId) {
             const buildingNode = scene.nodes[buildingId] as BuildingNode
-            const level0Id = (buildingNode.children ?? []).find((childId) => {
+            const level0Id = buildingNode.children.find((childId) => {
               const levelNode = scene.nodes[childId] as LevelNode
               return levelNode?.type === 'level' && levelNode.level === 0
             })
             if (level0Id) {
               viewer.setSelection({ levelId: level0Id as LevelNode['id'] })
-            } else if ((buildingNode.children ?? [])[0]) {
+            } else if (buildingNode.children[0]) {
               // Fallback to first level if level 0 doesn't exist
-              viewer.setSelection({ levelId: (buildingNode.children ?? [])[0] as LevelNode['id'] })
+              viewer.setSelection({ levelId: buildingNode.children[0] as LevelNode['id'] })
             }
           }
         }

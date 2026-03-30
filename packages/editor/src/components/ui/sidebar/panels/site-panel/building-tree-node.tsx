@@ -30,7 +30,7 @@ export function BuildingTreeNode({ node, depth, isLast }: BuildingTreeNodeProps)
   const handleAddLevel = (e: React.MouseEvent) => {
     e.stopPropagation()
     const newLevel = LevelNode.parse({
-      level: (node.children?.length ?? 0),
+      level: node.children.length,
       children: [],
       parentId: node.id,
     })
@@ -57,7 +57,7 @@ export function BuildingTreeNode({ node, depth, isLast }: BuildingTreeNodeProps)
       }
       depth={depth}
       expanded={expanded}
-      hasChildren={(node.children?.length ?? 0) > 0}
+      hasChildren={node.children.length > 0}
       icon={<Building2 className="h-3.5 w-3.5" />}
       isHovered={isHovered}
       isLast={isLast}
@@ -67,10 +67,10 @@ export function BuildingTreeNode({ node, depth, isLast }: BuildingTreeNodeProps)
       onDoubleClick={() => focusTreeNode(node.id)}
       onToggle={() => setExpanded(!expanded)}
     >
-      {(node.children ?? []).map((childId, index) => (
+      {node.children.map((childId, index) => (
         <TreeNode
           depth={depth + 1}
-          isLast={index === (node.children ?? []).length - 1}
+          isLast={index === node.children.length - 1}
           key={childId}
           nodeId={childId}
         />

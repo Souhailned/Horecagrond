@@ -198,7 +198,7 @@ export function TreeNodeDragProvider({ children }: { children: ReactNode }) {
         REMOVE_WHEN_EMPTY.has(staleParent.type) &&
         'children' in staleParent &&
         Array.isArray(staleParent.children) &&
-        (staleParent.children ?? []).length === 0
+        staleParent.children.length === 0
       ) {
         state.deleteNode(drag.sourceParentId as AnyNodeId)
       }

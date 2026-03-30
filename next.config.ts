@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
   turbopack: {
     resolveAlias: {
       react: "./node_modules/react",
+      // Explicit subpath aliases — the bare "three" alias broke package.json
+      // "exports" resolution for three/webgpu and three/tsl, causing WebGPU
+      // materials (wall, ceiling, door, etc.) to silently fail.
+      "three/webgpu": "./node_modules/three/build/three.webgpu.js",
+      "three/tsl": "./node_modules/three/build/three.tsl.js",
       three: "./node_modules/three",
       "@react-three/fiber": "./node_modules/@react-three/fiber",
       "@react-three/drei": "./node_modules/@react-three/drei",

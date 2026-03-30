@@ -61,7 +61,7 @@ const getCurrentLevelWalls = (): WallNode[] => {
   const levelNode = nodes[currentLevelId]
   if (!levelNode || levelNode.type !== 'level') return []
 
-  return ((levelNode as LevelNode).children ?? [])
+  return (levelNode as LevelNode).children
     .map((childId) => nodes[childId])
     .filter((node): node is WallNode => node?.type === 'wall')
 }

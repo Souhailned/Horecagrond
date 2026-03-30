@@ -55,7 +55,7 @@ export const RoofEditSystem = () => {
           // Entering edit mode: rebuild individual segment geometries
           // Exiting edit mode: sync transforms + rebuild merged mesh
           const { markDirty } = useScene.getState()
-          for (const childId of roofNode.children ?? []) {
+          for (const childId of roofNode.children) {
             markDirty(childId as AnyNodeId)
           }
         }

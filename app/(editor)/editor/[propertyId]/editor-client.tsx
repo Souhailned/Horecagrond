@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { saveFloorPlan } from "@/app/actions/floor-plans";
 import { toast } from "sonner";
 import type { SaveStatus } from "@pascal-app/editor";
+import { AiCommandsProvider } from "@/components/editor/ai-commands-provider";
 
 // Dynamic import to avoid SSR issues with Three.js
 const Editor = dynamic(
@@ -128,6 +129,8 @@ export function PascalEditorWrapper({
         onSaveStatusChange={handleSaveStatusChange}
         appMenuButton={sidebarTop}
       />
+      {/* Register AI commands in the editor's command palette */}
+      <AiCommandsProvider />
     </div>
   );
 }
