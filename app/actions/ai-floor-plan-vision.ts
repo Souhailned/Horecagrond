@@ -33,6 +33,8 @@ function buildVisionPrompt(surfaceTotal?: number): string {
   const surfaceHint = surfaceTotal
     ? `The total surface area is approximately ${surfaceTotal} m². Use this to calibrate your dimension estimates.`
     : "Estimate the total surface area from the floor plan proportions.";
+  const validZoneTypes = Array.from(VALID_ZONE_TYPES).join(", ");
+  const validItemTypes = Array.from(VALID_ITEM_TYPES).join(", ");
 
   return `You are an expert horeca (hospitality) floor plan analyzer. Analyze this photograph of a physical floor plan (drawn on paper) and extract the layout as structured JSON.
 
@@ -68,8 +70,8 @@ Output ONLY valid JSON matching this exact structure (no text before or after):
   ]
 }
 
-Valid zone types: dining_area, bar_area, kitchen, storage, terrace, entrance, restroom, office, prep_area, walk_in_cooler, seating_outside, hallway.
-Valid item types: table_round, table_square, table_long, chair, barstool, bar_counter, kitchen_counter, oven, stove, fridge, sink, coffee_machine, display_case, register, booth, planter, parasol.
+Valid zone types: ${validZoneTypes}.
+Valid item types: ${validItemTypes}.
 
 Rules:
 - Map any dining room, restaurant area, or seating area to "dining_area"

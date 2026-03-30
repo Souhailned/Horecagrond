@@ -55,7 +55,10 @@ export async function sendWelcomeEmail(
     );
 
     if (!result.success) {
-      return { success: false, error: result.error };
+      return {
+        success: false,
+        error: result.error ?? "Failed to send welcome email",
+      };
     }
 
     return {
@@ -99,7 +102,10 @@ export async function sendWorkspaceInvitationEmail(
     );
 
     if (!result.success) {
-      return { success: false, error: result.error };
+      return {
+        success: false,
+        error: result.error ?? "Failed to send workspace invitation email",
+      };
     }
 
     return {
@@ -143,7 +149,10 @@ export async function sendEmailVerification(
     );
 
     if (!result.success) {
-      return { success: false, error: result.error };
+      return {
+        success: false,
+        error: result.error ?? "Failed to send deal alert email",
+      };
     }
 
     return {
@@ -187,7 +196,10 @@ export async function sendPasswordResetEmail(
     );
 
     if (!result.success) {
-      return { success: false, error: result.error };
+      return {
+        success: false,
+        error: result.error ?? "Failed to send contact notification email",
+      };
     }
 
     return {
@@ -234,7 +246,10 @@ export async function sendTemplateEmailAction<T extends EmailTemplateId>(
     const result = await sendTemplateEmail(templateId, data, options);
 
     if (!result.success) {
-      return { success: false, error: result.error };
+      return {
+        success: false,
+        error: result.error ?? "Failed to send inquiry confirmation email",
+      };
     }
 
     return {

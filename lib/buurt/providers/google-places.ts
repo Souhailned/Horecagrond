@@ -13,6 +13,30 @@ import { haversineDistance } from "./osm";
 
 const TIMEOUT = 5000;
 
+// ---------------------------------------------------------------------------
+// Types used by the Intelligence Scanner
+// ---------------------------------------------------------------------------
+
+export interface PlaceSearchDetail {
+  placeId: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  types: string[];
+  rating: number | null;
+  reviewCount: number | null;
+  priceLevel: string | null;
+  website: string | null;
+  phone: string | null;
+  businessStatus: string;
+  openingHours: { weekdayDescriptions: string[] } | null;
+}
+
+export interface FetchGooglePlacesOptions {
+  includeClosedBusinesses?: boolean;
+}
+
 /** Google price level enum → numeric */
 const PRICE_LEVEL_MAP: Record<string, number> = {
   PRICE_LEVEL_FREE: 0,
@@ -123,6 +147,99 @@ export async function fetchGooglePlaces(
     return sorted;
   } catch (error) {
     console.error("[google-places] Error:", error);
+    return null;
+  }
+}
+
+/**
+ * Search by keyword with detailed results (for Intelligence Scanner).
+ * Uses Google Places Text Search API and returns structured PlaceSearchDetail[].
+ */
+export async function searchByKeywordDetailed(
+  textQuery: string,
+  lat: number,
+  lng: number,
+  radius: number,
+  options?: FetchGooglePlacesOptions,
+): Promise<PlaceSearchDetail[] | null> {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const res = await fetch(
+      "https://places.googleapis.com/v1/places:searchText",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": [
+            "places.name",
+            "places.displayName",
+            "places.formattedAddress",
+            "places.types",
+            "places.rating",
+            "places.userRatingCount",
+            "places.location",
+            "places.priceLevel",
+            "places.businessStatus",
+            "places.regularOpeningHours",
+            "places.websiteUri",
+            "places.internationalPhoneNumber",
+          ].join(","),
+        },
+        body: JSON.stringify({
+          textQuery,
+          locationBias: {
+            circle: {
+              center: { latitude: lat, longitude: lng },
+              radius,
+            },
+          },
+          maxResultCount: 20,
+        }),
+        signal: AbortSignal.timeout(TIMEOUT),
+      },
+    );
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const places = data?.places || [];
+
+    const results: PlaceSearchDetail[] = [];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const place of places as any[]) {
+      if (
+        !options?.includeClosedBusinesses &&
+        place.businessStatus === "CLOSED_PERMANENTLY"
+      ) {
+        continue;
+      }
+
+      results.push({
+        placeId: place.name ?? "",
+        name: place.displayName?.text || "Onbekend",
+        address: place.formattedAddress || "",
+        lat: place.location?.latitude ?? lat,
+        lng: place.location?.longitude ?? lng,
+        types: place.types || [],
+        rating: place.rating ?? null,
+        reviewCount: place.userRatingCount ?? null,
+        priceLevel: place.priceLevel ?? null,
+        website: place.websiteUri ?? null,
+        phone: place.internationalPhoneNumber ?? null,
+        businessStatus: place.businessStatus ?? "OPERATIONAL",
+        openingHours: place.regularOpeningHours?.weekdayDescriptions
+          ? { weekdayDescriptions: place.regularOpeningHours.weekdayDescriptions }
+          : null,
+      });
+    }
+
+    return results;
+  } catch (error) {
+    console.warn("[google-places] searchByKeywordDetailed error:", error);
     return null;
   }
 }

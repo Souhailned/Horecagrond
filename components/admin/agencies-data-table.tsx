@@ -130,7 +130,7 @@ export function AgenciesDataTable({ data, pageCount }: AgenciesDataTableProps) {
       // Get owner ID
       const ownerResult = await getAgencyOwnerId(agency.id);
       if (!ownerResult.success || !ownerResult.data) {
-        toast.error(ownerResult.error || "Failed to get agency owner");
+        toast.error(ownerResult.success ? "Failed to get agency owner" : ownerResult.error);
         setIsLoading(null);
         return;
       }

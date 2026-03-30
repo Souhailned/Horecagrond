@@ -81,7 +81,7 @@ export default async function AgencyDetailPage({
     getAgency(slug).then((res) =>
       res.success && res.data
         ? getPropertiesByAgency(res.data.id, { status: "ACTIVE", limit: 6 })
-        : { success: false, data: [] }
+        : ({ success: false, error: "Agency not found" } as const)
     ),
   ]);
 
@@ -90,7 +90,7 @@ export default async function AgencyDetailPage({
   }
 
   const agency = agencyResult.data;
-  const properties = propertiesResult.data || [];
+  const properties = propertiesResult.success ? propertiesResult.data : [];
 
   // Generate structured data
   const agencyStructuredData = generateAgencyStructuredData(agency);

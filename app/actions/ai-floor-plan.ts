@@ -11,7 +11,6 @@ import {
   parseLlmResponse,
   VALID_ZONE_TYPES,
   VALID_ITEM_TYPES,
-  type LlmFloorPlan,
   type LlmZone,
   type LlmItem,
 } from "@/lib/editor/ai-transform";
@@ -64,6 +63,8 @@ function buildPrompt(input: GenerateFloorPlanInput): string {
   const type = typeLabels[input.propertyType] || input.propertyType.toLowerCase();
   const widthEstimate = Math.round(Math.sqrt(input.surfaceTotal) * 1.2);
   const lengthEstimate = Math.round(input.surfaceTotal / widthEstimate);
+  const validZoneTypes = Array.from(VALID_ZONE_TYPES).join(", ");
+  const validItemTypes = Array.from(VALID_ITEM_TYPES).join(", ");
 
   return `You are a horeca floor plan generator. Generate a realistic JSON floor plan layout for a ${type}.
 
@@ -100,8 +101,8 @@ Output ONLY valid JSON matching this exact structure (no text before or after):
   ]
 }
 
-Valid zone types: dining_area, bar_area, kitchen, storage, terrace, entrance, restroom, office, prep_area, walk_in_cooler, seating_outside, hallway.
-Valid item types: table_round, table_square, table_long, chair, barstool, bar_counter, kitchen_counter, oven, stove, fridge, sink, coffee_machine, display_case, register, booth, planter, parasol.
+Valid zone types: ${validZoneTypes}.
+Valid item types: ${validItemTypes}.
 
 Rules:
 - Zones should tile to fill the building without overlapping

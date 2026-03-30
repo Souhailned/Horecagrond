@@ -43,11 +43,13 @@ async function AgenciesContent({ searchParams }: PageProps) {
     plan,
   });
 
-  if (!result.success || !result.data) {
+  if (!result.success) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <div className="text-center">
-          <p className="text-destructive">{result.error || "Failed to load agencies"}</p>
+          <p className="text-destructive">
+            {result.error}
+          </p>
         </div>
       </div>
     );

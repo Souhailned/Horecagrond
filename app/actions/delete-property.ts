@@ -24,5 +24,5 @@ export async function deleteProperty(propertyId: string) {
     data: { status: "ARCHIVED" },
   });
 
-  return { success: true };
+  return { success: true, data: undefined };
 }

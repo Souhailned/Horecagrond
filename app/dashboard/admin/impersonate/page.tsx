@@ -53,7 +53,7 @@ async function ImpersonateContent({ searchParams }: PageProps) {
       <div className="flex h-[50vh] items-center justify-center">
         <div className="text-center">
           <p className="text-destructive">
-            {result.error || "Failed to load users"}
+            {result.success ? "Failed to load users" : result.error}
           </p>
         </div>
       </div>

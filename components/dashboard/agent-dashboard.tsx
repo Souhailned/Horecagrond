@@ -185,7 +185,11 @@ export async function AgentDashboard() {
               Er ging iets mis
             </CardTitle>
             <CardDescription>
-              {statsResult.error || inquiriesResult.error || propertiesResult.error}
+              {
+                (!statsResult.success ? statsResult.error : undefined) ||
+                (!inquiriesResult.success ? inquiriesResult.error : undefined) ||
+                (!propertiesResult.success ? propertiesResult.error : undefined)
+              }
             </CardDescription>
           </CardHeader>
         </Card>

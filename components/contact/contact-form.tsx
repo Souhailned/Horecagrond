@@ -17,7 +17,7 @@ export function ContactForm() {
     const formData = new FormData(formRef.current!);
     const result = await submitContactForm(formData);
 
-    if (result.error) {
+    if (!result.success) {
       setStatus("error");
       setErrorMsg(result.error);
     } else {

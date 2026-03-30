@@ -29,7 +29,7 @@ export async function submitContactForm(formData: FormData): Promise<ActionResul
 
     // For production: await sendEmail({ to: "info@horecagrond.nl", subject: `Contact: ${data.subject}`, ... })
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
     console.error("Contact form error:", error);
     return { success: false, error: "Er ging iets mis. Probeer het later opnieuw." };

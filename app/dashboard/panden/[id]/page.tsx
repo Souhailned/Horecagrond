@@ -134,7 +134,7 @@ export default async function PandDetailPage({ params }: { params: Promise<{ id:
                 <Pencil className="mr-2 h-4 w-4" /> Bewerken
               </Button>
             </Link>
-            <Link href={`/dashboard/panden/${property.id}/plattegrond`} className="block">
+            <Link href={`/editor/${property.id}`} className="block">
               <Button variant="outline" className="w-full justify-start">
                 <Layers className="mr-2 h-4 w-4" /> Plattegrond
               </Button>

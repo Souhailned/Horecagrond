@@ -107,9 +107,9 @@ export default async function AdminAiCostsPage({
     getDailyAiCosts(days),
   ]);
 
-  const summary = summaryRes.data;
-  const workspaces = workspaceRes.data || [];
-  const daily = dailyRes.data || [];
+  const summary = summaryRes.success ? summaryRes.data : null;
+  const workspaces = workspaceRes.success ? workspaceRes.data : [];
+  const daily = dailyRes.success ? dailyRes.data : [];
 
   const kpis = [
     {

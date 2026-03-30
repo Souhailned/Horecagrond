@@ -141,7 +141,7 @@ export async function impersonateUser(userId: string): Promise<ActionResult> {
     revalidatePath("/admin/impersonate");
     revalidatePath("/dashboard");
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: any) {
     console.error("Error impersonating user:", error);
     return {
@@ -168,7 +168,7 @@ export async function stopImpersonating(): Promise<ActionResult> {
     revalidatePath("/admin/impersonate");
     revalidatePath("/dashboard");
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: any) {
     console.error("Error stopping impersonation:", error);
     return {

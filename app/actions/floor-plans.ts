@@ -41,6 +41,23 @@ const updateThumbnailSchema = z.object({
   thumbnailUrl: z.string().url("Ongeldige URL"),
 });
 
+const saveFloorPlansBatchSchema = z.object({
+  propertyId: z.string().cuid(),
+  plans: z.array(
+    z.object({
+      floorPlanId: z.string().cuid().optional(),
+      floor: z.number().int().min(-5).max(100),
+      name: z.string().min(1).max(100).trim(),
+      sceneData: z.object({
+        nodes: z.record(z.string(), z.unknown()),
+        rootNodeIds: z.array(z.string()),
+      }),
+      totalArea: z.number().min(0).max(100_000).optional(),
+      zones: z.record(z.string(), z.unknown()).optional(),
+    })
+  ).min(1),
+});
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -57,6 +74,8 @@ export type FloorPlanData = {
   createdAt: Date;
   updatedAt: Date;
 };
+
+export type FloorPlanBatchInput = z.infer<typeof saveFloorPlansBatchSchema>;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -136,6 +155,77 @@ export async function saveFloorPlan(
     return { success: true, data: { id: floorPlan.id } };
   } catch (error) {
     console.error("saveFloorPlan error:", error);
+    return { success: false, error: "Er is een fout opgetreden" };
+  }
+}
+
+export async function saveFloorPlansBatch(
+  input: FloorPlanBatchInput
+): Promise<ActionResult<{ ids: string[] }>> {
+  try {
+    const authCheck = await requirePermission("properties:edit-own");
+    if (!authCheck.success) return { success: false, error: authCheck.error };
+    const { userId, role } = authCheck.data!;
+
+    const validated = saveFloorPlansBatchSchema.safeParse(input);
+    if (!validated.success) {
+      return { success: false, error: validated.error.issues[0].message };
+    }
+
+    const { propertyId, plans } = validated.data;
+    const property = await verifyPropertyAccess(propertyId, userId, role);
+    if (!property) {
+      return { success: false, error: "Pand niet gevonden of geen toegang" };
+    }
+
+    const floorsToKeep = plans.map((plan) => plan.floor);
+
+    const records = await prisma.$transaction(
+      async (tx) => {
+        const upserts = await Promise.all(
+          plans.map((plan) =>
+            tx.propertyFloorPlan.upsert({
+              where: {
+                propertyId_floor: { propertyId, floor: plan.floor },
+              },
+              update: {
+                name: plan.name,
+                sceneData: plan.sceneData as Prisma.InputJsonValue,
+                totalArea: plan.totalArea ?? null,
+                zones: plan.zones
+                  ? (plan.zones as Prisma.InputJsonValue)
+                  : Prisma.DbNull,
+              },
+              create: {
+                propertyId,
+                floor: plan.floor,
+                name: plan.name,
+                sceneData: plan.sceneData as Prisma.InputJsonValue,
+                totalArea: plan.totalArea ?? null,
+                zones: plan.zones
+                  ? (plan.zones as Prisma.InputJsonValue)
+                  : Prisma.DbNull,
+              },
+              select: { id: true },
+            })
+          )
+        );
+
+        await tx.propertyFloorPlan.deleteMany({
+          where: {
+            propertyId,
+            floor: { notIn: floorsToKeep },
+          },
+        });
+
+        return upserts;
+      }
+    );
+
+    revalidatePath(`/dashboard/properties/${propertyId}`);
+    return { success: true, data: { ids: records.map((record) => record.id) } };
+  } catch (error) {
+    console.error("saveFloorPlansBatch error:", error);
     return { success: false, error: "Er is een fout opgetreden" };
   }
 }
@@ -266,7 +356,7 @@ export async function deleteFloorPlan(
 
     revalidatePath(`/dashboard/properties/${floorPlan.propertyId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
     console.error("deleteFloorPlan error:", error);
     return { success: false, error: "Er is een fout opgetreden" };
@@ -317,7 +407,7 @@ export async function updateFloorPlanThumbnail(
 
     revalidatePath(`/dashboard/properties/${floorPlan.propertyId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
     console.error("updateFloorPlanThumbnail error:", error);
     return { success: false, error: "Er is een fout opgetreden" };

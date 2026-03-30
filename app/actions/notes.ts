@@ -239,7 +239,7 @@ export async function updateNote(
 
     revalidatePath(`/dashboard/projects/${note.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: unknown) {
     console.error("Error updating note:", error);
 
@@ -292,7 +292,7 @@ export async function deleteNote(
 
     revalidatePath(`/dashboard/projects/${note.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: unknown) {
     console.error("Error deleting note:", error);
 
@@ -443,7 +443,7 @@ export async function deleteProjectFile(
 
     revalidatePath(`/dashboard/projects/${file.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: unknown) {
     console.error("Error deleting project file:", error);
 

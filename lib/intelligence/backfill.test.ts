@@ -1,0 +1,76 @@
+import { describe, expect, it } from "vitest";
+
+import { collectBackfillEvidenceEntries } from "./backfill";
+
+describe("collectBackfillEvidenceEntries", () => {
+  it("collects base and crawled source payloads for backfill", () => {
+    const entries = collectBackfillEvidenceEntries({
+      id: "biz-1",
+      googlePlaceId: "places/1",
+      name: "Test Business",
+      address: "Damrak 1",
+      city: "Amsterdam",
+      lat: 0,
+      lng: 0,
+      types: ["restaurant"],
+      businessType: null,
+      currentRating: 4.2,
+      totalReviews: 120,
+      priceLevel: "PRICE_LEVEL_MODERATE",
+      website: "https://example.com",
+      phone: "123",
+      isOpen: true,
+      openingHours: null,
+      bereikbaarheidOV: "goed",
+      passantenPerDag: 1200,
+      demografieData: { inwoners: 1000 },
+      locationScore: null,
+      signalScore: 0,
+      signals: null,
+      chainName: null,
+      chainSize: null,
+      kvkNumber: null,
+      postalCode: null,
+      tripadvisorRating: null,
+      tripadvisorReviews: null,
+      tripadvisorUrl: null,
+      tripadvisorRanking: null,
+      aiAnalysis: null,
+      firstScannedAt: null,
+      lastScannedAt: new Date(),
+      scanCount: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      crawledIntel: {
+        id: "intel-1",
+        businessId: "biz-1",
+        crawlStatus: "complete",
+        crawlProgress: 100,
+        crawlError: null,
+        crawledAt: new Date(),
+        sourcesCompleted: ["website", "news"],
+        kvkNumber: null,
+        kvkData: { kvkNumber: "123" },
+        tripadvisorUrl: null,
+        tripadvisorData: null,
+        thuisbezorgdUrl: null,
+        thuisbezorgdData: null,
+        allecijfersUrl: null,
+        allecijfersData: null,
+        websiteUrl: "https://example.com",
+        websiteData: { concept: "Restaurant" },
+        newsData: { items: [] },
+        competitorsData: null,
+        aiDossier: null,
+        aiDossierGeneratedAt: null,
+        confidenceLevel: "low",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    expect(entries.map((entry) => entry.source)).toEqual(
+      expect.arrayContaining(["google_places", "cbs", "transport", "kvk", "website", "news"]),
+    );
+  });
+});

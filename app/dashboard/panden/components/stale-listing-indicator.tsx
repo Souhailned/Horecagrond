@@ -55,7 +55,7 @@ export function StaleListingIndicator({
       if (result.success && result.data) {
         setAdvice(result.data);
       } else {
-        setError(result.error ?? "Kon advies niet laden");
+        setError(result.success ? "Kon advies niet laden" : result.error);
       }
     } catch {
       setError("Kon advies niet laden");

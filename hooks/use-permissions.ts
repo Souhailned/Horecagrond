@@ -5,6 +5,7 @@ import {
   hasPermission,
   canEditColumn,
   type UserRole,
+  type Permission,
 } from "@/lib/rbac";
 
 /**
@@ -19,8 +20,8 @@ export function usePermissions() {
   return {
     role,
     userId,
-    /** Check if user has a specific permission */
-    can: (permission: string) => hasPermission(role, permission),
+    /** Check if user has a specific permission (type-safe) */
+    can: (permission: Permission) => hasPermission(role, permission),
     /** Check if user can edit a specific table column */
     canEdit: (resource: string, columnId: string) =>
       canEditColumn(role, resource, columnId),

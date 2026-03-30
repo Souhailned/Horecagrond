@@ -357,7 +357,7 @@ export async function completeSeekerOnboarding(
 
     revalidatePath("/dashboard");
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
     console.error("Error completing seeker onboarding:", error);
     return {

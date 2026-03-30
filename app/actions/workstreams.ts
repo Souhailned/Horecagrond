@@ -237,7 +237,7 @@ export async function updateWorkstream(
 
     revalidatePath(`/dashboard/projects/${workstream.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: unknown) {
     console.error("Error updating workstream:", error);
 
@@ -311,7 +311,7 @@ export async function deleteWorkstream(
 
     revalidatePath(`/dashboard/projects/${workstream.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: unknown) {
     console.error("Error deleting workstream:", error);
 
@@ -360,7 +360,7 @@ export async function reorderWorkstreams(
 
     revalidatePath(`/dashboard/projects/${validatedData.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: unknown) {
     console.error("Error reordering workstreams:", error);
 
@@ -418,7 +418,7 @@ export async function moveTaskToWorkstream(
 
     revalidatePath(`/dashboard/projects/${task.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: unknown) {
     console.error("Error moving task to workstream:", error);
 

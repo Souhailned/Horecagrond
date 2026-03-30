@@ -210,7 +210,7 @@ export async function deleteScopeItem(
 
     revalidatePath(`/dashboard/projects/${item.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: unknown) {
     console.error("Error deleting scope item:", error);
 

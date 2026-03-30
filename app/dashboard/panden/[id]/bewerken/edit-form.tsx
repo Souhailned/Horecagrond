@@ -69,7 +69,7 @@ export function EditPropertyForm({ property }: EditPropertyFormProps) {
         buildYear: form.buildYear ? parseInt(form.buildYear) : undefined,
       });
 
-      if (result.error) {
+      if (!result.success) {
         toast.error(result.error);
       } else {
         toast.success("Pand bijgewerkt!");

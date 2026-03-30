@@ -80,6 +80,10 @@ model User {
   // AI Quota
   aiQuota           UserAiQuota?
 
+  // Intelligence
+  intelligenceProfiles  IntelligenceProfile[]
+  sharedReports         SharedIntelligenceReport[] @relation("ReportCreator")
+
   @@map("user")
 }
 
@@ -2085,6 +2089,286 @@ model UserAiQuota {
   updatedAt      DateTime  @updatedAt
 
   @@map("user_ai_quota")
+}
+
+// ============================================
+// INTELLIGENCE SCANNER
+// ============================================
+
+model IntelligenceProfile {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Profile details
+  name                 String
+  concept              String
+  conceptDescription   String?  @db.Text
+  targetCities         String[]
+  competitorKeywords   String[]
+  scanCategories       String[]
+
+  // Filters
+  minSurface           Int?
+  maxSurface           Int?
+  locationTypes        String[]
+  targetAge            String?
+  minIncome            Float?
+  minPassanten         Int?
+  includeChains        Boolean  @default(true)
+  minChainSize         Int?
+  maxChainSize         Int?
+  visibilityPrefs      String[]
+  operatingModel       String[]
+  excludeIndustrial    Boolean  @default(true)
+  excludeResidential   Boolean  @default(true)
+  minCityPopulation    Int?
+  positiveEnvironment  String[]
+  negativeEnvironment  String[]
+
+  // Client info (when makelaar creates for client)
+  clientName           String?
+  clientEmail          String?
+
+  // Stats (denormalized for speed)
+  totalScanned         Int      @default(0)
+  totalMatches         Int      @default(0)
+  active               Boolean  @default(true)
+  lastScanAt           DateTime?
+  lastMatchAt          DateTime?
+
+  // Relations
+  matches              IntelligenceMatch[]
+  scanJobs             IntelligenceScanJob[]
+  sharedReports        SharedIntelligenceReport[]
+
+  // Timestamps
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([userId])
+  @@map("intelligence_profile")
+}
+
+model IntelligenceScanJob {
+  id              String   @id @default(cuid())
+  profileId       String
+  profile         IntelligenceProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  city            String?
+  status          String   @default("pending") // pending, running, completed, failed
+  progress        Int      @default(0)         // 0-100
+  businessesFound Int      @default(0)
+  matchesFound    Int      @default(0)
+  error           String?  @db.Text
+  triggerRunId    String?
+
+  // Timestamps
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([profileId])
+  @@map("intelligence_scan_job")
+}
+
+model MonitoredBusiness {
+  id               String   @id @default(cuid())
+  googlePlaceId    String   @unique
+
+  // Basic Info
+  name             String
+  address          String
+  city             String
+  lat              Float
+  lng              Float
+  types            String[]
+  businessType     String?
+
+  // Google Places data
+  currentRating    Float?
+  totalReviews     Int?
+  priceLevel       String?
+  website          String?
+  phone            String?
+  isOpen           Boolean  @default(true)
+  openingHours     Json?
+
+  // Buurt enrichment data
+  bereikbaarheidOV   String?
+  passantenPerDag    Int?
+  demografieData     Json?
+  locationScore      Int?
+
+  // Signal detection
+  signalScore      Int      @default(0)
+  signals          Json?
+
+  // Chain data
+  chainName          String?
+  chainSize          Int?
+
+  // KvK
+  kvkNumber          String?
+
+  // Postal / location
+  postalCode         String?
+
+  // TripAdvisor (denormalized from crawled intel)
+  tripadvisorRating  Float?
+  tripadvisorReviews Int?
+  tripadvisorUrl     String?
+  tripadvisorRanking String?
+
+  // AI analysis
+  aiAnalysis         String?  @db.Text
+
+  // Scan tracking
+  firstScannedAt   DateTime?
+  lastScannedAt    DateTime?
+  scanCount        Int      @default(0)
+
+  // Relations
+  crawledIntel     CrawledBusinessIntel?
+  sourceEvidence   BusinessSourceEvidence[]
+  matches          IntelligenceMatch[]
+  snapshots        BusinessSnapshot[]
+
+  // Timestamps
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
+
+  @@index([city])
+  @@index([signalScore])
+  @@map("monitored_business")
+}
+
+model CrawledBusinessIntel {
+  id               String   @id @default(cuid())
+  businessId       String   @unique
+  business         MonitoredBusiness @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  // Crawl status
+  crawlStatus      String   @default("pending") // pending, crawling, complete, partial, failed
+  crawlProgress    Int      @default(0)
+  crawlError       String?  @db.Text
+  crawledAt        DateTime?
+  sourcesCompleted String[]
+
+  // Source data (JSON blobs)
+  kvkNumber        String?
+  kvkData          Json?
+  tripadvisorUrl   String?
+  tripadvisorData  Json?
+  thuisbezorgdUrl  String?
+  thuisbezorgdData Json?
+  allecijfersUrl   String?
+  allecijfersData  Json?
+  websiteUrl       String?
+  websiteData      Json?
+  newsData         Json?
+  competitorsData  Json?
+
+  // AI-generated dossier
+  aiDossier              String?  @db.Text
+  aiDossierGeneratedAt   DateTime?
+  confidenceLevel        String   @default("low") // low, medium, high
+
+  // Timestamps
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([businessId])
+  @@map("crawled_business_intel")
+}
+
+model BusinessSourceEvidence {
+  id            String   @id @default(cuid())
+  businessId    String
+  business      MonitoredBusiness @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  source        String
+  status        String   @default("missing") // missing, fetched, failed, stale
+  schemaVersion String   @default("v1")
+  confidence    String   @default("low") // low, medium, high
+  qualityScore  Int?
+
+  fetchedAt     DateTime?
+  expiresAt     DateTime?
+  url           String?
+  facts         Json?
+  error         String?  @db.Text
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([businessId, source])
+  @@index([source, status])
+  @@index([businessId])
+  @@map("business_source_evidence")
+}
+
+model IntelligenceMatch {
+  id              String   @id @default(cuid())
+  profileId       String
+  profile         IntelligenceProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  businessId      String
+  business        MonitoredBusiness @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  // Match data
+  matchScore      Int      @default(0) // 0-100
+  matchBreakdown  Json?
+  status          String   @default("new") // new, reviewed, starred, contacted, dismissed
+  notes           String?  @db.Text
+  aiSummary       String?  @db.Text
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([profileId, businessId])
+  @@index([profileId])
+  @@index([businessId])
+  @@index([matchScore])
+  @@map("intelligence_match")
+}
+
+model BusinessSnapshot {
+  id              String   @id @default(cuid())
+  businessId      String
+  business        MonitoredBusiness @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  rating          Float?
+  reviewCount     Int?
+  isOpen          Boolean?
+  recentReviews   Json?
+  scannedAt       DateTime @default(now())
+
+  @@index([businessId])
+  @@index([scannedAt])
+  @@map("business_snapshot")
+}
+
+model SharedIntelligenceReport {
+  id              String   @id @default(cuid())
+  token           String   @unique @default(cuid())
+  profileId       String
+  profile         IntelligenceProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  createdById     String
+  createdBy       User     @relation("ReportCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  selectedMatchIds String[]
+  customNote       String?  @db.Text
+  expiresAt        DateTime
+  viewCount        Int      @default(0)
+  lastViewedAt     DateTime?
+
+  // Timestamps
+  createdAt        DateTime @default(now())
+
+  @@index([profileId])
+  @@index([token])
+  @@map("shared_intelligence_report")
 }
 
 // ============================================
