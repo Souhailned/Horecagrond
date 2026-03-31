@@ -355,7 +355,7 @@ var TeamMember = defineCollection({
   }
 });
 var content_collections_default = defineConfig({
-  collections: [
+  content: [
     BlogPost,
     ChangelogPost,
     CustomersPost,
