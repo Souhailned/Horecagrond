@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { PriceTypes, type PropertyWizardData, type PriceType } from "../types";
 import { Euro, Home, Key, ArrowLeftRight } from "lucide-react";
 
-const priceTypeIcons: Record<PriceType, React.ElementType> = {
+const priceTypeIcons: Record<PriceType, React.ComponentType<{ className?: string }>> = {
   RENT: Key,
   SALE: Home,
   RENT_OR_SALE: ArrowLeftRight,

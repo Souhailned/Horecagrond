@@ -77,5 +77,5 @@ export async function completeOnboarding(data: Record<string, any>) {
     });
   }
 
-  return { success: true };
+  return { success: true, data: undefined };
 }

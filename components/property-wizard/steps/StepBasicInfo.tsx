@@ -19,7 +19,7 @@ import {
   HelpCircle,
 } from "lucide-react";
 
-const propertyTypeIcons: Record<string, React.ElementType> = {
+const propertyTypeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   RESTAURANT: UtensilsCrossed,
   CAFE: Coffee,
   BAR: Wine,

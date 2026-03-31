@@ -79,7 +79,7 @@ export async function deleteUserAccount(): Promise<ActionResult<void>> {
     // Revalidate paths
     revalidatePath("/dashboard");
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
     console.error("Error deleting user account:", error);
     return {

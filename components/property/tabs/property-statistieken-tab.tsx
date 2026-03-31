@@ -130,7 +130,7 @@ export function PropertyStatistiekenTab({ property }: PropertyStatistiekenTabPro
     title: string;
     value: number | string;
     trend?: number;
-    icon: React.ElementType;
+    icon: React.ComponentType<{ className?: string }>;
     description?: string;
   }) => (
     <Card>

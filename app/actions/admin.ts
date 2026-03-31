@@ -91,7 +91,7 @@ export async function adminUpdateUserRole(
       data: { role: validated.data.newRole },
     });
     revalidatePath("/dashboard/admin/users");
-    return { success: true };
+    return { success: true, data: undefined };
   } catch {
     return { success: false, error: "Kon rol niet wijzigen" };
   }
@@ -115,7 +115,7 @@ export async function adminBanUser(
       data: { banned: validated.data.banned },
     });
     revalidatePath("/dashboard/admin/users");
-    return { success: true };
+    return { success: true, data: undefined };
   } catch {
     return { success: false, error: "Kon gebruiker niet blokkeren" };
   }
@@ -138,7 +138,7 @@ export async function adminDeleteUser(userId: string): Promise<ActionResult> {
 
     await prisma.user.delete({ where: { id: validated.data.userId } });
     revalidatePath("/dashboard/admin/users");
-    return { success: true };
+    return { success: true, data: undefined };
   } catch {
     return { success: false, error: "Kon gebruiker niet verwijderen" };
   }
@@ -164,7 +164,7 @@ export async function adminUpdatePropertyStatus(
       data: { status: validated.data.status },
     });
     revalidatePath("/dashboard/admin/properties");
-    return { success: true };
+    return { success: true, data: undefined };
   } catch {
     return { success: false, error: "Kon status niet wijzigen" };
   }
@@ -184,7 +184,7 @@ export async function adminDeleteProperty(
 
     await prisma.property.delete({ where: { id: validated.data.propertyId } });
     revalidatePath("/dashboard/admin/properties");
-    return { success: true };
+    return { success: true, data: undefined };
   } catch {
     return { success: false, error: "Kon pand niet verwijderen" };
   }
@@ -213,7 +213,7 @@ export async function adminFeatureProperty(
       },
     });
     revalidatePath("/dashboard/admin/properties");
-    return { success: true };
+    return { success: true, data: undefined };
   } catch {
     return { success: false, error: "Kon pand niet uitlichten" };
   }
@@ -273,7 +273,7 @@ export async function adminDeleteAgency(
 
     await prisma.agency.delete({ where: { id: agencyId } });
     revalidatePath("/dashboard/admin/agencies");
-    return { success: true };
+    return { success: true, data: undefined };
   } catch {
     return { success: false, error: "Kon makelaarskantoor niet verwijderen" };
   }

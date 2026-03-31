@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/property/status-badge";
-import { Pencil, ExternalLink, Eye, Heart, MessageCircle, Copy, Trash2 } from "lucide-react";
+import { Pencil, ExternalLink, Eye, Heart, MessageCircle, Copy, Trash2, Layers } from "lucide-react";
 import { ContentCard, ContentCardHeader, ContentCardBody } from "@/components/dashboard/content-card";
 
 export default async function PandDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -132,6 +132,11 @@ export default async function PandDetailPage({ params }: { params: Promise<{ id:
             <Link href={`/dashboard/panden/${property.id}/bewerken`} className="block">
               <Button variant="outline" className="w-full justify-start">
                 <Pencil className="mr-2 h-4 w-4" /> Bewerken
+              </Button>
+            </Link>
+            <Link href={`/editor/${property.id}`} className="block">
+              <Button variant="outline" className="w-full justify-start">
+                <Layers className="mr-2 h-4 w-4" /> Plattegrond
               </Button>
             </Link>
             <Button variant="outline" className="w-full justify-start">

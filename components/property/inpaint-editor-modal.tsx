@@ -125,7 +125,7 @@ export function InpaintEditorModal({
       });
 
       if (!placeholderResult.success || !placeholderResult.data) {
-        setError(placeholderResult.error || "Kon inpaint niet starten");
+        setError(placeholderResult.success ? "Kon inpaint niet starten" : placeholderResult.error);
         setIsGenerating(false);
         return;
       }

@@ -52,7 +52,7 @@ function ReviewSection({
   isComplete,
 }: {
   title: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   step: WizardStep;
   onEdit: (step: WizardStep) => void;
   children: React.ReactNode;

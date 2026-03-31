@@ -278,7 +278,7 @@ export async function cancelInvitation(
     // Revalidate paths
     revalidatePath("/dashboard/settings");
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
     console.error("Error canceling invitation:", error);
     return {

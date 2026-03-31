@@ -69,7 +69,7 @@ export async function deleteSearchAlert(alertId: string) {
     where: { id: alertId, userId: session.user.id },
   });
 
-  return { success: true };
+  return { success: true, data: undefined };
 }
 
 export async function toggleSearchAlert(alertId: string) {

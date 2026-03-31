@@ -1,92 +1,138 @@
 /**
  * Role-Based Access Control for Horecagrond
- * 
+ *
  * Roles:
  * - admin: Platform eigenaar, alle rechten
  * - agent: Makelaar, eigen panden + leads beheren
  * - seeker: Ondernemer, zoeken + favorieten
+ *
+ * Permission type is auto-derived — typos are compile-time errors.
  */
 
 export type UserRole = "admin" | "agent" | "seeker";
 
-export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
-  admin: [
-    // Platform management
-    "platform:manage",
-    "users:manage",
-    "users:list",
-    "users:delete",
-    "users:change-role",
-    // Properties
-    "properties:manage-all",
-    "properties:approve",
-    "properties:feature",
-    "properties:create",
-    "properties:edit-own",
-    "properties:delete-own",
-    // Leads
-    "leads:view-all",
-    "leads:view-own",
-    // Analytics
-    "analytics:platform",
-    "analytics:own",
-    // AI
-    "ai:unlimited",
-    "ai:visualize",
-    "ai:description",
-    "ai:listing-package",
-    "ai:inpaint",
-    // Export
-    "export:all",
-    "export:own",
-    // Projects
-    "projects:create",
-    "projects:manage",
-  ],
-  agent: [
-    // Properties
-    "properties:create",
-    "properties:edit-own",
-    "properties:delete-own",
-    "properties:duplicate",
-    "properties:bulk-status",
-    // Leads
-    "leads:view-own",
-    "leads:update-status",
-    // Analytics
-    "analytics:own",
-    // AI
-    "ai:description",
-    "ai:visualize",
-    "ai:listing-package",
-    "ai:inpaint",
-    // Export
-    "export:own",
-    // Agency
-    "agency:manage",
-    "agency:invite-members",
-    // Projects
-    "projects:create",
-  ],
-  seeker: [
-    // Search
-    "properties:view",
-    "properties:compare",
-    // Favorites
-    "favorites:manage",
-    "search-alerts:manage",
-    // AI (limited)
-    "ai:visualize",
-    // Contact
-    "inquiries:create",
-  ],
+// ─── Permission Matrix (source of truth) ─────────────────────────────────────
+
+const ADMIN_PERMISSIONS = [
+  // Platform management
+  "platform:manage",
+  "users:manage",
+  "users:list",
+  "users:delete",
+  "users:change-role",
+  // Properties
+  "properties:manage-all",
+  "properties:approve",
+  "properties:feature",
+  "properties:create",
+  "properties:edit-own",
+  "properties:delete-own",
+  // Leads
+  "leads:view-all",
+  "leads:view-own",
+  // Analytics
+  "analytics:platform",
+  "analytics:own",
+  // AI
+  "ai:unlimited",
+  "ai:visualize",
+  "ai:description",
+  "ai:listing-package",
+  "ai:inpaint",
+  // Export
+  "export:all",
+  "export:own",
+  // Floor plans
+  "floorplans:manage",
+  "floorplans:view",
+  // Projects
+  "projects:create",
+  "projects:manage",
+  // Intelligence (full access)
+  "intelligence:view",
+  "intelligence:manage",
+  "intelligence:scan",
+  "intelligence:share",
+] as const;
+
+const AGENT_PERMISSIONS = [
+  // Properties
+  "properties:create",
+  "properties:edit-own",
+  "properties:delete-own",
+  "properties:duplicate",
+  "properties:bulk-status",
+  // Leads
+  "leads:view-own",
+  "leads:update-status",
+  // Analytics
+  "analytics:own",
+  // AI
+  "ai:description",
+  "ai:visualize",
+  "ai:listing-package",
+  "ai:inpaint",
+  // Export
+  "export:own",
+  // Agency
+  "agency:manage",
+  "agency:invite-members",
+  // Floor plans
+  "floorplans:manage",
+  "floorplans:view",
+  // Projects
+  "projects:create",
+  // Intelligence (full access — makelaar scant voor klanten)
+  "intelligence:view",
+  "intelligence:manage",
+  "intelligence:scan",
+  "intelligence:share",
+] as const;
+
+const SEEKER_PERMISSIONS = [
+  // Search
+  "properties:view",
+  "properties:compare",
+  // Favorites
+  "favorites:manage",
+  "search-alerts:manage",
+  // Floor plans (view only)
+  "floorplans:view",
+  // AI (limited)
+  "ai:visualize",
+  // Contact
+  "inquiries:create",
+  // Intelligence (self-service — ondernemer zoekt zelf)
+  "intelligence:view",
+  "intelligence:manage",
+  "intelligence:scan",
+] as const;
+
+// ─── Derived Permission Type ─────────────────────────────────────────────────
+
+/**
+ * Union type of ALL valid permissions — derived from the permission arrays.
+ * Using an invalid permission string is a compile-time error.
+ */
+export type Permission =
+  | (typeof ADMIN_PERMISSIONS)[number]
+  | (typeof AGENT_PERMISSIONS)[number]
+  | (typeof SEEKER_PERMISSIONS)[number];
+
+// ─── Public API ──────────────────────────────────────────────────────────────
+
+/** Backwards-compatible: roles → permission arrays (now typed as readonly) */
+export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
+  admin: ADMIN_PERMISSIONS,
+  agent: AGENT_PERMISSIONS,
+  seeker: SEEKER_PERMISSIONS,
 };
 
-export function hasPermission(role: UserRole, permission: string): boolean {
-  return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
+export function hasPermission(role: UserRole, permission: Permission): boolean {
+  return (ROLE_PERMISSIONS[role] as readonly string[]).includes(permission);
 }
 
-export function getUserPermissions(role: UserRole): string[] {
+export function getUserPermissions(role: UserRole): readonly Permission[] {
   return ROLE_PERMISSIONS[role] || [];
 }
 
@@ -94,7 +140,7 @@ export function getUserPermissions(role: UserRole): string[] {
  * Column-level edit permissions for EditableDataTable.
  * Key = "resource:columnId", value = required permission.
  */
-export const TABLE_COLUMN_PERMISSIONS: Record<string, string> = {
+export const TABLE_COLUMN_PERMISSIONS: Record<string, Permission> = {
   // Admin Users table
   "admin-users:role": "users:change-role",
   "admin-users:status": "users:manage",

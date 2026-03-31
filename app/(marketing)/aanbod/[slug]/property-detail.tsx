@@ -77,6 +77,26 @@ const AiInterieurSection = dynamic(
   { ssr: false }
 );
 
+const FloorPlanViewer = dynamic(
+  () =>
+    import("@/components/property/floor-plan-viewer").then(
+      (m) => m.FloorPlanViewer
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center min-h-[400px] bg-muted/30 rounded-lg">
+        <div className="flex flex-col items-center gap-2">
+          <div className="size-8 animate-pulse rounded-lg bg-muted" />
+          <span className="text-sm text-muted-foreground">
+            Plattegrond laden...
+          </span>
+        </div>
+      </div>
+    ),
+  }
+);
+
 const PropertyDetailMap = dynamic(
   () => import("@/components/aanbod/property-map").then((mod) => mod.PropertyDetailMap),
   {
@@ -119,6 +139,14 @@ interface SimilarProperty {
   matchReason: string;
 }
 
+interface FloorPlanItem {
+  id: string;
+  name: string;
+  floor: number;
+  sceneData: unknown;
+  totalArea: number | null;
+}
+
 interface PropertyDetailProps {
   property: Property;
   demoConcepts?: DemoConceptData[];
@@ -128,6 +156,7 @@ interface PropertyDetailProps {
   teaserStyle?: string | null;
   aiQuota?: { freeEditsUsed: number; freeEditsLimit: number; remaining: number; totalEdits: number } | null;
   bestStagingImageUrl?: string;
+  floorPlans?: FloorPlanItem[];
 }
 
 export function PropertyDetail({
@@ -139,11 +168,14 @@ export function PropertyDetail({
   teaserStyle,
   aiQuota,
   bestStagingImageUrl,
+  floorPlans,
 }: PropertyDetailProps) {
+  const [activeTab, setActiveTab] = useState("algemeen");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const lightboxRef = useRef<HTMLDivElement>(null);
   const [isPending, startTransition] = useTransition();
+  const hasFloorPlans = !!(floorPlans && floorPlans.length > 0);
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
   const [sharedAnalysis, setSharedAnalysis] = useState<EnhancedBuurtAnalysis | null>(null);
   const handleAnalysisLoaded = useCallback((data: EnhancedBuurtAnalysis) => {
@@ -540,11 +572,14 @@ export function PropertyDetail({
             <Separator className="mb-6" />
 
             {/* Tabs */}
-            <Tabs defaultValue="algemeen" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="mb-6 w-full justify-start">
                 <TabsTrigger value="algemeen">Algemeen</TabsTrigger>
                 <TabsTrigger value="kenmerken">Kenmerken</TabsTrigger>
                 <TabsTrigger value="locatie">Locatie</TabsTrigger>
+                {hasFloorPlans && (
+                  <TabsTrigger value="plattegrond">Plattegrond</TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="algemeen" className="space-y-6">
@@ -596,6 +631,35 @@ export function PropertyDetail({
                     ))}
                   </div>
                 </div>
+
+                {/* Floor plan teaser */}
+                {hasFloorPlans && (
+                  <Card className="overflow-hidden">
+                    <div className="flex items-center justify-between p-4 pb-0">
+                      <div className="flex items-center gap-2">
+                        <Maximize2 className="size-5 text-primary" />
+                        <h3 className="text-lg font-semibold">
+                          Interactieve Plattegrond
+                        </h3>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setActiveTab("plattegrond")}
+                      >
+                        Bekijk plattegrond
+                      </Button>
+                    </div>
+                    <CardContent className="p-4">
+                      <div className="relative h-[300px] rounded-lg overflow-hidden border bg-muted/20">
+                        <FloorPlanViewer
+                          propertyId={property.id}
+                          floorPlans={floorPlans!}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
 
               <TabsContent value="kenmerken" className="space-y-6">
@@ -748,6 +812,16 @@ export function PropertyDetail({
                   </>
                 )}
               </TabsContent>
+
+              {/* Floor plan tab */}
+              {hasFloorPlans && (
+                <TabsContent value="plattegrond" className="space-y-6">
+                  <FloorPlanViewer
+                    propertyId={property.id}
+                    floorPlans={floorPlans!}
+                  />
+                </TabsContent>
+              )}
             </Tabs>
           </div>
 

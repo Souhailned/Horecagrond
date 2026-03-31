@@ -46,7 +46,9 @@ async function WorkspacesContent({ searchParams }: PageProps) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <div className="text-center">
-          <p className="text-destructive">{result.error || "Failed to load workspaces"}</p>
+          <p className="text-destructive">
+            {result.success ? "Failed to load workspaces" : result.error}
+          </p>
         </div>
       </div>
     );

@@ -276,11 +276,15 @@ export const createPropertySchema = z.object({
 // ============================================================================
 
 // Update property schema (all optional)
+/** User-facing update schema — no admin-only fields */
 export const updatePropertySchema = createPropertySchema.partial().extend({
   id: z.string().min(1, "Property ID is verplicht"),
   // Status can only be set via update (not create)
   status: propertyStatusEnum.optional(),
-  // Admin-only fields
+});
+
+/** Admin-only update schema — extends user schema with admin fields */
+export const adminUpdatePropertySchema = updatePropertySchema.extend({
   adminNotes: z.string().optional(),
   rejectionReason: z.string().optional(),
 });
@@ -419,6 +423,7 @@ export type PropertyFilter = PropertyFilterInput; // Alias for backward compatib
 export type ListPropertiesInput = z.infer<typeof listPropertiesSchema>;
 export type CreatePropertyInput = z.infer<typeof createPropertySchema>;
 export type UpdatePropertyInput = z.infer<typeof updatePropertySchema>;
+export type AdminUpdatePropertyInput = z.infer<typeof adminUpdatePropertySchema>;
 export type PublishPropertyInput = z.infer<typeof publishPropertySchema>;
 export type UnpublishPropertyInput = z.infer<typeof unpublishPropertySchema>;
 export type DeletePropertyInput = z.infer<typeof deletePropertySchema>;

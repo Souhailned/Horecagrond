@@ -28,18 +28,33 @@ async function getActiveWorkspace() {
     headers: await headers(),
   });
 
-  // Type assertion for custom session fields from Prisma schema
-  const sessionData = session?.session as
-    | { activeWorkspaceId?: string }
-    | undefined;
+  if (!session?.user?.id) {
+    return null;
+  }
 
-  if (!session?.user?.id || !sessionData?.activeWorkspaceId) {
+  // Try session's activeWorkspaceId first
+  const sessionData = session.session as { activeWorkspaceId?: string } | undefined;
+  if (sessionData?.activeWorkspaceId) {
+    return {
+      userId: session.user.id,
+      workspaceId: sessionData.activeWorkspaceId,
+    };
+  }
+
+  // Fallback: get user's first workspace membership
+  const membership = await prisma.workspaceMember.findFirst({
+    where: { userId: session.user.id },
+    select: { workspaceId: true },
+    orderBy: { joinedAt: "asc" },
+  });
+
+  if (!membership) {
     return null;
   }
 
   return {
     userId: session.user.id,
-    workspaceId: sessionData.activeWorkspaceId,
+    workspaceId: membership.workspaceId,
   };
 }
 
@@ -536,7 +551,7 @@ export async function retryImageProcessing(
     await recomputeImageProjectCounters(image.projectId);
 
     revalidatePath(`/dashboard/images/${image.projectId}`);
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
     console.error("[retryImageProcessing] Error:", error);
     return { success: false, error: "Failed to retry processing" };
@@ -727,7 +742,7 @@ export async function deleteProjectImage(
 
     revalidatePath(`/dashboard/images/${image.projectId}`);
     revalidatePath("/dashboard/images");
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
     console.error("[deleteProjectImage] Error:", error);
     return { success: false, error: "Failed to delete image" };

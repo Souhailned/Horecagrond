@@ -478,7 +478,7 @@ export async function deleteTask(
       revalidatePath(`/dashboard/projects/${projectId}`);
     }
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: any) {
     console.error("Error deleting task:", error);
     return { success: false, error: "Failed to delete task" };
@@ -654,7 +654,7 @@ export async function reorderTasks(
 
     revalidatePath("/dashboard/lifecycle");
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: any) {
     console.error("Error reordering tasks:", error);
     return { success: false, error: "Failed to reorder tasks" };
@@ -763,7 +763,7 @@ export async function saveViewOptions(
     // TODO: UserPreference model not yet implemented
     // For now, just return success
     console.log("View options would be saved:", options);
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: any) {
     console.error("Error saving view options:", error);
     return { success: false, error: "Failed to save view options" };
@@ -783,7 +783,7 @@ export async function resetViewOptions(): Promise<ActionResult<void>> {
 
     // TODO: UserPreference model not yet implemented
     console.log("View options would be reset to defaults");
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: any) {
     console.error("Error resetting view options:", error);
     return { success: false, error: "Failed to reset view options" };

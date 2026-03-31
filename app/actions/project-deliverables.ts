@@ -199,7 +199,7 @@ export async function updateDeliverable(
 
     revalidatePath(`/dashboard/projects/${deliverable.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: unknown) {
     console.error("Error updating deliverable:", error);
 
@@ -249,7 +249,7 @@ export async function deleteDeliverable(
 
     revalidatePath(`/dashboard/projects/${deliverable.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: unknown) {
     console.error("Error deleting deliverable:", error);
 

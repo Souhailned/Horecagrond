@@ -600,7 +600,7 @@ export async function deleteProject(
 
     revalidatePath("/dashboard/projects");
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: any) {
     console.error("Error deleting project:", error);
 
@@ -993,7 +993,7 @@ export async function updateProjectTask(
 
     revalidatePath(`/dashboard/projects/${task.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: any) {
     console.error("Error updating task:", error);
 
@@ -1044,7 +1044,7 @@ export async function deleteProjectTask(
 
     revalidatePath(`/dashboard/projects/${task.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: any) {
     console.error("Error deleting task:", error);
 
@@ -1118,7 +1118,7 @@ export async function addProjectMember(
 
     revalidatePath(`/dashboard/projects/${validatedData.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: any) {
     console.error("Error adding project member:", error);
 
@@ -1175,7 +1175,7 @@ export async function removeProjectMember(
 
     revalidatePath(`/dashboard/projects/${validatedData.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: any) {
     console.error("Error removing project member:", error);
 
@@ -1196,9 +1196,9 @@ export async function updateProjectStatus(
 ): Promise<ActionResult<void>> {
   const result = await updateProject({ id: projectId, status });
   if (!result.success) {
-    return { success: false, error: result.error };
+    return { success: false, error: result.error ?? "Project update failed" };
   }
-  return { success: true };
+  return { success: true, data: undefined };
 }
 
 /**
@@ -1210,7 +1210,7 @@ export async function updateProjectProgress(
 ): Promise<ActionResult<void>> {
   const result = await updateProject({ id: projectId, progress: Math.min(100, Math.max(0, progress)) });
   if (!result.success) {
-    return { success: false, error: result.error };
+    return { success: false, error: result.error ?? "Project update failed" };
   }
-  return { success: true };
+  return { success: true, data: undefined };
 }

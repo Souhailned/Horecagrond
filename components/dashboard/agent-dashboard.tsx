@@ -100,7 +100,7 @@ function StatCard({
 }: {
   title: string;
   value: string | number;
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   trend?: number;
   trendLabel?: string;
   badge?: number;
@@ -185,7 +185,11 @@ export async function AgentDashboard() {
               Er ging iets mis
             </CardTitle>
             <CardDescription>
-              {statsResult.error || inquiriesResult.error || propertiesResult.error}
+              {
+                (!statsResult.success ? statsResult.error : undefined) ||
+                (!inquiriesResult.success ? inquiriesResult.error : undefined) ||
+                (!propertiesResult.success ? propertiesResult.error : undefined)
+              }
             </CardDescription>
           </CardHeader>
         </Card>

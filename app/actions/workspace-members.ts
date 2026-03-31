@@ -345,7 +345,7 @@ export async function removeMember(
     // Revalidate paths
     revalidatePath("/dashboard/settings");
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
     console.error("Error removing member:", error);
     return {

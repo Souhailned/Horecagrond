@@ -79,7 +79,7 @@ export function AgencyDetailModal({
           if (result.success && result.data) {
             setDetailData(result.data);
           } else {
-            setError(result.error || "Failed to load agency details");
+            setError(result.success ? "Failed to load agency details" : result.error);
           }
         })
         .catch((err) => {

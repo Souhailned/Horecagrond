@@ -207,7 +207,7 @@ export async function deleteFeature(
 
     revalidatePath(`/dashboard/projects/${feature.projectId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: unknown) {
     console.error("Error deleting feature:", error);
 

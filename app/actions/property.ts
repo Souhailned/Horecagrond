@@ -17,7 +17,10 @@ import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 
 // Property with relations type
-export type PropertyWithRelations = Awaited<ReturnType<typeof getPropertyBySlug>>["data"];
+export type PropertyWithRelations = Extract<
+  Awaited<ReturnType<typeof getPropertyBySlug>>,
+  { success: true }
+>["data"];
 
 /**
  * Build the shared include for property queries returning full Property data.
@@ -609,7 +612,7 @@ export async function deleteProperty(id: string): Promise<ActionResult<void>> {
 
     revalidatePath("/dashboard/panden");
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
     console.error("Error deleting property:", error);
     return {

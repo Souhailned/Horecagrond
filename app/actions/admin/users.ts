@@ -300,7 +300,7 @@ export async function deleteUser(input: DeleteUserInput): Promise<ActionResult> 
 
     revalidatePath("/admin/users");
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: any) {
     console.error("Error deleting user:", error);
 

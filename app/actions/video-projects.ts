@@ -209,7 +209,7 @@ export async function deleteVideoProject(
     });
 
     revalidatePath("/dashboard/videos");
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error) {
     console.error("[deleteVideoProject] Error:", error);
     return { success: false, error: "Failed to delete project" };

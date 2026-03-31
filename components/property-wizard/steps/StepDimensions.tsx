@@ -38,7 +38,7 @@ function SurfaceInput({
   onChange: (value: number | null) => void;
   placeholder: string;
   label: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   error?: string;
   required?: boolean;
   description?: string;

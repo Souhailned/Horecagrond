@@ -394,7 +394,7 @@ const TeamMember = defineCollection({
 })
 
 export default defineConfig({
-  collections: [
+  content: [
     BlogPost,
     ChangelogPost,
     CustomersPost,

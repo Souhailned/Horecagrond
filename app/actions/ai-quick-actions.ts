@@ -137,7 +137,7 @@ export async function generatePropertyDescription(
     const result = await generateListingTurbo(input);
 
     if (!result.success) {
-      return { success: false, error: result.error };
+      return { success: false, error: result.error ?? "AI quick action failed" };
     }
 
     const { description, shortDescription, highlights } = result.data;
@@ -191,7 +191,7 @@ export async function generatePropertySocialPosts(
     const result = await generateListingTurbo(input);
 
     if (!result.success) {
-      return { success: false, error: result.error };
+      return { success: false, error: result.error ?? "AI quick action failed" };
     }
 
     const { socialMedia } = result.data;

@@ -298,7 +298,7 @@ export async function deleteWorkspace(input: DeleteWorkspaceInput): Promise<Acti
 
     revalidatePath("/admin/workspaces");
 
-    return { success: true };
+    return { success: true, data: undefined };
   } catch (error: any) {
     console.error("Error deleting workspace:", error);
 

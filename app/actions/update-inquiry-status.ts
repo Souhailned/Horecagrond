@@ -28,5 +28,5 @@ export async function updateInquiryStatus(inquiryId: string, status: InquiryStat
     },
   });
 
-  return { success: true };
+  return { success: true, data: undefined };
 }

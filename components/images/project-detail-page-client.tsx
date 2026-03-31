@@ -175,7 +175,7 @@ export function ProjectDetailPageClient({
   const handleOpenVersions = async (image: Image) => {
     const result = await getImageVersions(image.id);
     if (!result.success || !result.data) {
-      toast.error(result.error || "Failed to load versions");
+      toast.error(result.success ? "Failed to load versions" : result.error);
       return;
     }
 

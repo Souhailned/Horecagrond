@@ -393,7 +393,7 @@ export function PandenClient({
           setAiDialog((prev) => ({
             ...prev,
             loading: false,
-            error: result.error ?? "Er ging iets mis",
+            error: result.success ? "Er ging iets mis" : result.error,
           }));
         }
       } catch {
@@ -421,7 +421,7 @@ export function PandenClient({
       try {
         const result = await triggerBulkAiGenerate(ids, type);
         if (!result.success || !result.data) {
-          toast.error(result.error ?? "Kon bulk AI niet starten", { id: toastId });
+          toast.error(result.success ? "Kon bulk AI niet starten" : result.error, { id: toastId });
           return;
         }
 

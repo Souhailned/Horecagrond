@@ -110,7 +110,7 @@ export function ImageUploadDialog({
       );
 
       if (!urlsResult.success || !urlsResult.data) {
-        throw new Error(urlsResult.error || "Failed to get upload URLs");
+        throw new Error(urlsResult.success ? "Failed to get upload URLs" : urlsResult.error);
       }
 
       // Step 2: Upload each file directly to R2

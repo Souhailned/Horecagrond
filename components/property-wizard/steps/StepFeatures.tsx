@@ -13,7 +13,7 @@ import {
   Check,
 } from "lucide-react";
 
-const categoryIcons: Record<string, React.ElementType> = {
+const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   FileCheck,
   Building: Building2,
   Plug,

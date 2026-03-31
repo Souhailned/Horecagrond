@@ -6,16 +6,24 @@ import { cn } from "@/lib/utils"
 interface ContentCardHeaderProps {
   title: string
   actions?: React.ReactNode
+  breadcrumb?: React.ReactNode
   children?: React.ReactNode
 }
 
-export function ContentCardHeader({ title, actions, children }: ContentCardHeaderProps) {
+export function ContentCardHeader({ title, actions, breadcrumb, children }: ContentCardHeaderProps) {
   return (
     <header className="flex flex-col border-b border-border/40">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-3">
           <SidebarTrigger className="h-8 w-8 rounded-lg hover:bg-accent text-muted-foreground" />
-          <p className="text-base font-medium text-foreground">{title}</p>
+          <div className="flex min-w-0 flex-col gap-1">
+            {breadcrumb && (
+              <div className="text-xs text-muted-foreground">
+                {breadcrumb}
+              </div>
+            )}
+            <p className="text-base font-medium text-foreground">{title}</p>
+          </div>
         </div>
         {actions && (
           <div className="flex items-center gap-2">
