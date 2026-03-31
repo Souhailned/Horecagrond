@@ -432,15 +432,12 @@ function AiReviewView({ onClose }: PaletteViewProps) {
   };
 
   // Count node types for summary
-  const walls = Object.values(sceneData.nodes).filter(
-    (n: any) => n.type === "wall"
-  ).length;
-  const zones = Object.values(sceneData.nodes).filter(
-    (n: any) => n.type === "zone"
-  );
-  const items = Object.values(sceneData.nodes).filter(
-    (n: any) => n.type === "item"
-  ).length;
+  const allNodes = Object.values(sceneData.nodes) as any[];
+  const walls = allNodes.filter((n) => n.type === "wall").length;
+  const doors = allNodes.filter((n) => n.type === "door").length;
+  const windows = allNodes.filter((n) => n.type === "window").length;
+  const zones = allNodes.filter((n) => n.type === "zone");
+  const items = allNodes.filter((n) => n.type === "item").length;
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -457,10 +454,18 @@ function AiReviewView({ onClose }: PaletteViewProps) {
       </div>
 
       {/* Summary grid */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-5 gap-2">
         <div className="rounded-md border border-border p-2 text-center">
           <p className="text-lg font-semibold text-foreground">{walls}</p>
           <p className="text-[10px] text-muted-foreground">Muren</p>
+        </div>
+        <div className="rounded-md border border-border p-2 text-center">
+          <p className="text-lg font-semibold text-foreground">{doors}</p>
+          <p className="text-[10px] text-muted-foreground">Deuren</p>
+        </div>
+        <div className="rounded-md border border-border p-2 text-center">
+          <p className="text-lg font-semibold text-foreground">{windows}</p>
+          <p className="text-[10px] text-muted-foreground">Ramen</p>
         </div>
         <div className="rounded-md border border-border p-2 text-center">
           <p className="text-lg font-semibold text-foreground">

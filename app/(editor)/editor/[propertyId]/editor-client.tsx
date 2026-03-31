@@ -104,19 +104,23 @@ export function PascalEditorWrapper({
   const StatusIcon = statusConfig.icon;
 
   const sidebarTop = (
-    <div className="flex items-center gap-2 px-2 py-1">
-      <Link href={backHref} className="flex-1 min-w-0">
-        <Button variant="ghost" size="sm" className="gap-1.5 text-xs w-full justify-start">
-          <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{propertyTitle}</span>
-        </Button>
+    <div className="flex flex-col gap-1.5">
+      <Link
+        href={backHref}
+        className="group flex items-center gap-2 rounded-md px-2 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:-translate-x-0.5" />
+        <span className="truncate text-xs">Terug naar dashboard</span>
       </Link>
-      {saveStatus !== "idle" && (
-        <div className="flex items-center gap-1 text-[10px] shrink-0">
-          <StatusIcon className={`h-3 w-3 ${statusConfig.className}`} />
-          <span className={statusConfig.className}>{statusConfig.label}</span>
-        </div>
-      )}
+      <div className="flex items-center justify-between gap-2 px-2">
+        <span className="truncate text-sm font-medium text-foreground">{propertyTitle}</span>
+        {saveStatus !== "idle" && (
+          <div className="flex items-center gap-1 text-[10px] shrink-0">
+            <StatusIcon className={`h-3 w-3 ${statusConfig.className}`} />
+            <span className={statusConfig.className}>{statusConfig.label}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -127,7 +131,7 @@ export function PascalEditorWrapper({
         onLoad={handleLoad}
         onSave={handleSave}
         onSaveStatusChange={handleSaveStatusChange}
-        appMenuButton={sidebarTop}
+        sidebarTop={sidebarTop}
       />
       {/* Register AI commands in the editor's command palette */}
       <AiCommandsProvider />

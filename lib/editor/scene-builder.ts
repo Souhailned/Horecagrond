@@ -12,6 +12,11 @@ import {
   ZONE_LABELS,
   DEFAULT_WALL_HEIGHT,
   DEFAULT_WALL_THICKNESS,
+  DEFAULT_DOOR_WIDTH,
+  DEFAULT_DOOR_HEIGHT,
+  DEFAULT_WINDOW_WIDTH,
+  DEFAULT_WINDOW_HEIGHT,
+  DEFAULT_WINDOW_SILL_HEIGHT,
 } from "@/lib/editor/schema";
 import { wrapNodesInDefaultHierarchy } from "@/lib/editor/scene-graph";
 import { getCatalogAsset } from "@/lib/editor/catalog-lookup";
@@ -115,6 +120,87 @@ export class SceneBuilder {
   }
 
   /**
+   * Create a door on an existing wall.
+   * The door becomes a child of the wall (not a direct level child).
+   * Returns the door node ID, or null if wallId is invalid.
+   */
+  createDoor(
+    wallId: string,
+    position: number,
+    opts?: { width?: number; height?: number; style?: string },
+  ): string | null {
+    const wall = this.nodes[wallId] as unknown as Record<string, unknown>;
+    if (!wall || wall.type !== "wall") return null;
+
+    const doorNodeId = `door_${uid()}`;
+    const doorNode = {
+      object: "node" as const,
+      id: doorNodeId,
+      type: "door" as const,
+      parentId: wallId,
+      visible: true,
+      position: [0, 0, 0] as [number, number, number],
+      rotation: [0, 0, 0] as [number, number, number],
+      wallId,
+      wallPosition: Math.max(0.05, Math.min(0.95, position)),
+      width: opts?.width ?? DEFAULT_DOOR_WIDTH,
+      height: opts?.height ?? DEFAULT_DOOR_HEIGHT,
+      style: opts?.style ?? "single",
+    };
+
+    // Store in nodes map but NOT in nodeIds (doors are wall children, not level children)
+    this.nodes[doorNodeId] = doorNode as unknown as AnyNode;
+
+    // Add as child of the wall
+    const wallChildren = (wall.children as string[]) ?? [];
+    wallChildren.push(doorNodeId);
+    wall.children = wallChildren;
+
+    return doorNodeId;
+  }
+
+  /**
+   * Create a window on an existing wall.
+   * The window becomes a child of the wall (not a direct level child).
+   * Returns the window node ID, or null if wallId is invalid.
+   */
+  createWindow(
+    wallId: string,
+    position: number,
+    opts?: { width?: number; height?: number; sillHeight?: number; style?: string },
+  ): string | null {
+    const wall = this.nodes[wallId] as unknown as Record<string, unknown>;
+    if (!wall || wall.type !== "wall") return null;
+
+    const windowNodeId = `win_${uid()}`;
+    const windowNode = {
+      object: "node" as const,
+      id: windowNodeId,
+      type: "window" as const,
+      parentId: wallId,
+      visible: true,
+      position: [0, 0, 0] as [number, number, number],
+      rotation: [0, 0, 0] as [number, number, number],
+      wallId,
+      wallPosition: Math.max(0.05, Math.min(0.95, position)),
+      width: opts?.width ?? DEFAULT_WINDOW_WIDTH,
+      height: opts?.height ?? DEFAULT_WINDOW_HEIGHT,
+      sillHeight: opts?.sillHeight ?? DEFAULT_WINDOW_SILL_HEIGHT,
+      style: opts?.style ?? "fixed",
+    };
+
+    // Store in nodes map but NOT in nodeIds (windows are wall children, not level children)
+    this.nodes[windowNodeId] = windowNode as unknown as AnyNode;
+
+    // Add as child of the wall
+    const wallChildren = (wall.children as string[]) ?? [];
+    wallChildren.push(windowNodeId);
+    wall.children = wallChildren;
+
+    return windowNodeId;
+  }
+
+  /**
    * Place a furniture item from the catalog at a specific position.
    * Returns the item node ID, or null if the catalogId is not found.
    */
@@ -166,19 +252,33 @@ export class SceneBuilder {
    */
   getSceneSummary(): {
     wallCount: number;
+    doorCount: number;
+    windowCount: number;
     zoneCount: number;
     itemCount: number;
+    walls: Array<{ id: string; hasChildren: boolean }>;
     zones: Array<{ id: string; type: string; name: string }>;
   } {
     let wallCount = 0;
+    let doorCount = 0;
+    let windowCount = 0;
     let zoneCount = 0;
     let itemCount = 0;
+    const walls: Array<{ id: string; hasChildren: boolean }> = [];
     const zones: Array<{ id: string; type: string; name: string }> = [];
 
-    for (const nodeId of this.nodeIds) {
-      const node = this.nodes[nodeId] as unknown as Record<string, unknown>;
-      if (node.type === "wall") wallCount++;
-      else if (node.type === "zone") {
+    // Count all nodes (including wall children like doors/windows)
+    for (const [nodeId, rawNode] of Object.entries(this.nodes)) {
+      const node = rawNode as unknown as Record<string, unknown>;
+      if (node.type === "wall") {
+        wallCount++;
+        const children = (node.children as string[]) ?? [];
+        walls.push({ id: nodeId, hasChildren: children.length > 0 });
+      } else if (node.type === "door") {
+        doorCount++;
+      } else if (node.type === "window") {
+        windowCount++;
+      } else if (node.type === "zone") {
         zoneCount++;
         const meta = node.metadata as
           | Record<string, unknown>
@@ -188,10 +288,12 @@ export class SceneBuilder {
           type: (meta?.zoneType as string) ?? "unknown",
           name: (node.name as string) ?? "unnamed",
         });
-      } else if (node.type === "item") itemCount++;
+      } else if (node.type === "item") {
+        itemCount++;
+      }
     }
 
-    return { wallCount, zoneCount, itemCount, zones };
+    return { wallCount, doorCount, windowCount, zoneCount, itemCount, walls, zones };
   }
 
   /**

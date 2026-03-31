@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { ToolLoopAgent, tool, stepCountIs } from "ai";
+import { generateText, tool, stepCountIs } from "ai";
 import { requirePermission } from "@/lib/session";
 import { getModel } from "@/lib/ai/model";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -143,10 +143,15 @@ function buildPrompt(input: GenerateFloorPlanInput): string {
 
 Follow these steps exactly:
 
-STEP 1: Create walls (perimeter + interior walls)
+STEP 1: Create walls (perimeter + interior)
 - Call create_walls ONCE with ALL wall segments.
 - Perimeter: 4 outer walls forming the building rectangle from (0,0) to (${widthEstimate}, ${lengthEstimate}).
-- Interior: add wall segments that divide zones (between kitchen and dining, between restroom and dining, etc.)
+- Interior: walls ONLY where physical separation is needed.
+  - Restroom MUST be enclosed (walls on all sides).
+  - Storage/office MUST be enclosed.
+  - Kitchen: add wall ONLY if it is NOT described as "open kitchen". Open kitchens have NO wall toward dining.
+  - Bar area: typically NO wall toward dining (open flow).
+- SAVE the returned wallIds — you need them for doors and windows.
 
 STEP 2: Create zones
 - Call create_zone for EACH zone.
@@ -156,7 +161,19 @@ STEP 2: Create zones
 - Zone proportions: dining 40-60%, kitchen 15-25%, restroom 5-10%, entrance 3-8%.
 - Entrance near z=0 (front). Kitchen toward back (higher z). Terrace at negative z values.
 
-STEP 3: Place furniture in each zone
+STEP 3: Place doors and windows
+- DOORS: Every interior wall separating two zones needs a door.
+  - Entrance wall: create_door with position 0.5, style "double".
+  - Restroom walls: create_door with position 0.5, style "single".
+  - Kitchen wall (if present): create_door with position 0.5, width 1.2.
+  - Storage/office walls: create_door with position 0.5, style "single".
+- WINDOWS: Exterior (perimeter) walls need windows.
+  - Front wall: 1-2 windows flanking the entrance door (positions ~0.2 and ~0.8).
+  - Side walls (dining area): large windows (width 1.5-2.0), evenly spaced.
+  - Back wall (kitchen): 1 smaller window (width 0.8).
+  - Do NOT put windows on interior walls.
+
+STEP 4: Place furniture in each zone
 - Use place_table_with_chairs for dining tables with chairs.
 - Use place_furniture_row for items in a line (bar stools, kitchen equipment along wall).
 - Use place_furniture for individual items.
@@ -168,9 +185,9 @@ STEP 3: Place furniture in each zone
   * Add decorative items (indoor-plant, floor-lamp) for atmosphere.
 - Spacing: keep 1m+ between furniture groups. Tables need ~3m between centers.
 
-STEP 4: Verify
+STEP 5: Verify
 - Call get_scene_summary to check your work.
-- Ensure wall count > 4, all required zones exist, item count is realistic.`;
+- Ensure: walls > 4, doors > 0 (entrance + interior), windows > 0 (exterior walls), all required zones exist, item count is realistic.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +209,39 @@ ${buildZoneTypesPrompt()}
 ## Available Furniture Catalog (use these exact IDs)
 ${buildCatalogPrompt()}
 
+## Wall Placement Rules
+- YOU decide where walls go. Think like an architect.
+- Perimeter walls: 4 outer walls forming the building rectangle.
+- Interior walls: ONLY where physical separation is needed.
+- Do NOT place walls between:
+  - Open kitchen and dining area (open concept)
+  - Bar area and dining area (they flow into each other)
+  - Hallway and connected spaces (open passage)
+- DO place walls between:
+  - Kitchen and dining (unless described as "open kitchen")
+  - Restrooms and any other zone (always enclosed)
+  - Storage and public areas (always enclosed)
+  - Office and public areas (privacy)
+- The create_walls tool returns wall IDs — save these for placing doors and windows.
+
+## Door Placement Rules
+- Every interior wall that separates two zones MUST have a door.
+- The entrance wall MUST have a door (position 0.5, style "double" for main entrance).
+- Restroom zones need doors on their connecting walls.
+- Kitchen-to-dining door if there is a wall between them.
+- Position is 0-1 along the wall (0.5 = center). Use 0.3-0.7 range for natural placement.
+- Standard door width: 0.9m (single), 1.5m (double for entrance/kitchen).
+
+## Window Placement Rules
+- Exterior (perimeter) walls should have windows for natural light.
+- Dining area walls: large windows (width 1.5-2.0m).
+- Kitchen exterior wall: smaller window (width 0.8-1.0m).
+- Restroom exterior wall: small high window (width 0.6m) or none.
+- Entrance front wall: windows flanking the door.
+- Back wall (kitchen side): fewer/smaller windows.
+- Do NOT place windows on interior walls.
+- Position is 0-1 along the wall. Space windows evenly (e.g., 0.25 and 0.75 for two windows).
+
 ## Seating Capacity Rules
 - 1 dining-table seats 4 people. For N seats: ceil(N/4) dining-tables + N chairs.
 - 1 stool per 1m of bar counter. A 4m bar: 2 kitchen-counters + 4 stools.
@@ -205,10 +255,12 @@ ${buildCatalogPrompt()}
 - Tables should be spaced ~3m apart (center to center).
 
 ## Important
-- Call create_walls ONCE with ALL walls in the first step.
-- Call create_zone once per zone in the second step.
-- Place furniture zone by zone in the third step.
+- Call create_walls ONCE with ALL walls in step 1. Save the returned wall IDs.
+- Call create_zone once per zone in step 2.
+- Place doors and windows on walls in step 3. Use the wall IDs from step 1.
+- Place furniture zone by zone in step 4.
 - Always call get_scene_summary at the end to verify.
+- Verify: doors > 0, windows > 0, all required zones exist.
 - Do NOT explain your reasoning. Just call the tools.`;
 }
 
@@ -347,226 +399,307 @@ export async function generateAiFloorPlan(
     return { success: true, data: fallback };
   }
 
-  // 6. Generate floor plan via ToolLoopAgent
+  // 6. Generate floor plan via sequential phased generateText calls.
+  //    Each phase gets ONLY the relevant tools, so the LLM cannot skip steps.
   try {
     const builder = new SceneBuilder();
+    const model = modelResult.model;
+    const systemPrompt = buildInstructions();
 
-    const agent = new ToolLoopAgent({
-      model: modelResult.model,
-      instructions: buildInstructions(),
-      maxOutputTokens: 8192,
-      temperature: 0.3,
-
-      tools: {
-        create_walls: tool({
-          description:
-            "Create wall segments for the floor plan. Call ONCE with ALL walls (perimeter + interior).",
-          inputSchema: z.object({
-            walls: z.array(
-              z.object({
-                startX: z.number().describe("Start X coordinate in meters"),
-                startZ: z.number().describe("Start Z coordinate in meters"),
-                endX: z.number().describe("End X coordinate in meters"),
-                endZ: z.number().describe("End Z coordinate in meters"),
-              }),
-            ),
+    // ── Tool definitions (shared across phases) ─────────────────────────
+    const wallTool = tool({
+      description:
+        "Create wall segments for the floor plan. Call ONCE with ALL walls (perimeter + interior).",
+      inputSchema: z.object({
+        walls: z.array(
+          z.object({
+            startX: z.number().describe("Start X coordinate in meters"),
+            startZ: z.number().describe("Start Z coordinate in meters"),
+            endX: z.number().describe("End X coordinate in meters"),
+            endZ: z.number().describe("End Z coordinate in meters"),
           }),
-          execute: async ({ walls }) => {
-            const ids: string[] = [];
-            for (const w of walls) {
-              const id = builder.createWall(
-                [w.startX, w.startZ],
-                [w.endX, w.endZ],
-              );
-              ids.push(id);
-            }
-            return { created: ids.length, wallIds: ids };
-          },
-        }),
-
-        create_zone: tool({
-          description:
-            "Create a zone (room/area) in the floor plan. Call once per zone.",
-          inputSchema: z.object({
-            type: z
-              .string()
-              .describe(
-                "Zone type: dining_area, bar_area, kitchen, storage, terrace, entrance, restroom, office, prep_area, walk_in_cooler, seating_outside, hallway",
-              ),
-            x: z.number().describe("X position in meters from origin"),
-            z: z.number().describe("Z position in meters from origin"),
-            width: z.number().describe("Width in meters (X direction)"),
-            length: z.number().describe("Length in meters (Z direction)"),
-            name: z.string().optional().describe("Display name for the zone"),
-          }),
-          execute: async ({
-            type,
-            x,
-            z: zPos,
-            width,
-            length,
-            name,
-          }) => {
-            const id = builder.createZone(type, x, zPos, width, length, name);
-            return { id, type, area: width * length };
-          },
-        }),
-
-        place_furniture: tool({
-          description:
-            "Place a single furniture item from the catalog at a specific position.",
-          inputSchema: z.object({
-            catalogId: z.string().describe("Item ID from the catalog"),
-            x: z.number().describe("X position in meters"),
-            z: z.number().describe("Z position in meters"),
-            rotation: z
-              .number()
-              .optional()
-              .describe("Y-axis rotation in degrees (0, 90, 180, 270)"),
-          }),
-          execute: async ({ catalogId, x, z: zPos, rotation }) => {
-            const id = builder.placeItem(
-              catalogId,
-              x,
-              zPos,
-              rotation ? (rotation * Math.PI) / 180 : 0,
-            );
-            return id
-              ? { id, catalogId }
-              : { error: `Unknown catalog item: ${catalogId}` };
-          },
-        }),
-
-        place_furniture_row: tool({
-          description:
-            "Place multiple items in a row/line. Use for tables with chairs, bar stools along counter, kitchen equipment along wall.",
-          inputSchema: z.object({
-            catalogId: z.string().describe("Item ID from the catalog"),
-            count: z.number().describe("How many items to place"),
-            startX: z.number().describe("Starting X position in meters"),
-            startZ: z.number().describe("Starting Z position in meters"),
-            spacingX: z
-              .number()
-              .default(0)
-              .describe("Spacing between items in X direction (meters)"),
-            spacingZ: z
-              .number()
-              .default(0)
-              .describe("Spacing between items in Z direction (meters)"),
-            rotation: z
-              .number()
-              .optional()
-              .describe("Rotation in degrees"),
-          }),
-          execute: async ({
-            catalogId,
-            count,
-            startX,
-            startZ,
-            spacingX,
-            spacingZ,
-            rotation,
-          }) => {
-            const ids: string[] = [];
-            const safeCount = Math.min(count, 50); // safety cap
-            for (let i = 0; i < safeCount; i++) {
-              const id = builder.placeItem(
-                catalogId,
-                startX + i * spacingX,
-                startZ + i * spacingZ,
-                rotation ? (rotation * Math.PI) / 180 : 0,
-              );
-              if (id) ids.push(id);
-            }
-            return { placed: ids.length };
-          },
-        }),
-
-        place_table_with_chairs: tool({
-          description:
-            "Place a dining table with chairs arranged around it. Best for dining areas.",
-          inputSchema: z.object({
-            x: z.number().describe("Table center X position in meters"),
-            z: z.number().describe("Table center Z position in meters"),
-            chairs: z
-              .number()
-              .min(2)
-              .max(8)
-              .default(4)
-              .describe("Number of chairs (2-8)"),
-            tableType: z
-              .enum(["dining-table", "coffee-table"])
-              .default("dining-table")
-              .describe("Type of table"),
-          }),
-          execute: async ({ x, z: zPos, chairs, tableType }) => {
-            // Place the table
-            const tableId = builder.placeItem(tableType, x, zPos);
-            if (!tableId) return { error: "Table not found in catalog" };
-
-            // Calculate chair offsets based on table dimensions
-            const asset = getCatalogAsset(tableType);
-            const tw = asset ? asset.dimensions[0] / 2 + 0.4 : 1.5;
-            const td = asset ? asset.dimensions[2] / 2 + 0.4 : 0.8;
-
-            // 8 possible chair positions: 4 cardinal + 4 diagonal
-            const chairPositions: [number, number, number][] = [
-              [x - tw, zPos, 90], // left
-              [x + tw, zPos, -90], // right
-              [x, zPos - td, 0], // front
-              [x, zPos + td, 180], // back
-              [x - tw, zPos - td, 45], // front-left
-              [x + tw, zPos - td, -45], // front-right
-              [x - tw, zPos + td, 135], // back-left
-              [x + tw, zPos + td, -135], // back-right
-            ];
-
-            let placed = 0;
-            for (
-              let i = 0;
-              i < Math.min(chairs, chairPositions.length);
-              i++
-            ) {
-              const [cx, cz, rot] = chairPositions[i];
-              const id = builder.placeItem(
-                "dining-chair",
-                cx,
-                cz,
-                (rot * Math.PI) / 180,
-              );
-              if (id) placed++;
-            }
-
-            return { tableId, chairsPlaced: placed };
-          },
-        }),
-
-        get_scene_summary: tool({
-          description:
-            "Get a summary of the current scene being built. Use to verify progress.",
-          inputSchema: z.object({}),
-          execute: async () => builder.getSceneSummary(),
-        }),
+        ),
+      }),
+      execute: async ({ walls }) => {
+        const ids: string[] = [];
+        for (const w of walls) {
+          const id = builder.createWall(
+            [w.startX, w.startZ],
+            [w.endX, w.endZ],
+          );
+          ids.push(id);
+        }
+        return { created: ids.length, wallIds: ids };
       },
-
-      stopWhen: stepCountIs(30),
     });
 
-    const result = await agent.generate({
-      prompt: buildPrompt(validInput),
-      timeout: { totalMs: 120_000 },
+    const zoneTool = tool({
+      description:
+        "Create a zone (room/area) in the floor plan. Call once per zone.",
+      inputSchema: z.object({
+        type: z
+          .string()
+          .describe(
+            "Zone type: dining_area, bar_area, kitchen, storage, terrace, entrance, restroom, office, prep_area, walk_in_cooler, seating_outside, hallway",
+          ),
+        x: z.number().describe("X position in meters from origin"),
+        z: z.number().describe("Z position in meters from origin"),
+        width: z.number().describe("Width in meters (X direction)"),
+        length: z.number().describe("Length in meters (Z direction)"),
+        name: z.string().optional().describe("Display name for the zone"),
+      }),
+      execute: async ({ type, x, z: zPos, width, length, name }) => {
+        const id = builder.createZone(type, x, zPos, width, length, name);
+        return { id, type, area: width * length };
+      },
     });
 
-    // Verify the agent produced a non-empty scene
+    const doorTool = tool({
+      description:
+        "Place a door on a wall. Required at zone transitions and entrance.",
+      inputSchema: z.object({
+        wallId: z.string().describe("ID of the wall to place the door on"),
+        position: z
+          .number()
+          .min(0)
+          .max(1)
+          .describe("Position along wall 0-1 (0.5 = center)"),
+        width: z
+          .number()
+          .optional()
+          .describe("Door width in meters (default 0.9)"),
+        style: z
+          .enum(["single", "double", "sliding", "opening"])
+          .optional()
+          .describe("Door style (default single)"),
+      }),
+      execute: async ({ wallId, position, width, style }) => {
+        const id = builder.createDoor(wallId, position, { width, style });
+        return id
+          ? { id, wallId, position }
+          : { error: `Invalid wall ID: ${wallId}` };
+      },
+    });
+
+    const windowTool = tool({
+      description:
+        "Place a window on a wall. Use on exterior (perimeter) walls.",
+      inputSchema: z.object({
+        wallId: z.string().describe("ID of the wall to place the window on"),
+        position: z
+          .number()
+          .min(0)
+          .max(1)
+          .describe("Position along wall 0-1 (0.5 = center)"),
+        width: z
+          .number()
+          .optional()
+          .describe("Window width in meters (default 1.2)"),
+        height: z
+          .number()
+          .optional()
+          .describe("Window height in meters (default 1.2)"),
+      }),
+      execute: async ({ wallId, position, width, height }) => {
+        const id = builder.createWindow(wallId, position, { width, height });
+        return id
+          ? { id, wallId, position }
+          : { error: `Invalid wall ID: ${wallId}` };
+      },
+    });
+
+    const furnitureTool = tool({
+      description: "Place a single furniture item at a specific position.",
+      inputSchema: z.object({
+        catalogId: z.string().describe("Item ID from the catalog"),
+        x: z.number().describe("X position in meters"),
+        z: z.number().describe("Z position in meters"),
+        rotation: z
+          .number()
+          .optional()
+          .describe("Y-axis rotation in degrees"),
+      }),
+      execute: async ({ catalogId, x, z: zPos, rotation }) => {
+        const id = builder.placeItem(
+          catalogId,
+          x,
+          zPos,
+          rotation ? (rotation * Math.PI) / 180 : 0,
+        );
+        return id
+          ? { id, catalogId }
+          : { error: `Unknown catalog item: ${catalogId}` };
+      },
+    });
+
+    const furnitureRowTool = tool({
+      description: "Place multiple items in a row/line.",
+      inputSchema: z.object({
+        catalogId: z.string().describe("Item ID from the catalog"),
+        count: z.number().describe("How many items to place"),
+        startX: z.number().describe("Starting X position"),
+        startZ: z.number().describe("Starting Z position"),
+        spacingX: z.number().default(0).describe("X spacing between items"),
+        spacingZ: z.number().default(0).describe("Z spacing between items"),
+        rotation: z.number().optional().describe("Rotation in degrees"),
+      }),
+      execute: async ({
+        catalogId,
+        count,
+        startX,
+        startZ,
+        spacingX,
+        spacingZ,
+        rotation,
+      }) => {
+        const ids: string[] = [];
+        const safeCount = Math.min(count, 50);
+        for (let i = 0; i < safeCount; i++) {
+          const id = builder.placeItem(
+            catalogId,
+            startX + i * spacingX,
+            startZ + i * spacingZ,
+            rotation ? (rotation * Math.PI) / 180 : 0,
+          );
+          if (id) ids.push(id);
+        }
+        return { placed: ids.length };
+      },
+    });
+
+    const tableWithChairsTool = tool({
+      description: "Place a dining table with chairs arranged around it.",
+      inputSchema: z.object({
+        x: z.number().describe("Table center X position"),
+        z: z.number().describe("Table center Z position"),
+        chairs: z.number().min(2).max(8).default(4).describe("Number of chairs"),
+        tableType: z
+          .enum(["dining-table", "coffee-table"])
+          .default("dining-table"),
+      }),
+      execute: async ({ x, z: zPos, chairs, tableType }) => {
+        const tableId = builder.placeItem(tableType, x, zPos);
+        if (!tableId) return { error: "Table not found in catalog" };
+        const asset = getCatalogAsset(tableType);
+        const tw = asset ? asset.dimensions[0] / 2 + 0.4 : 1.5;
+        const td = asset ? asset.dimensions[2] / 2 + 0.4 : 0.8;
+        const chairPos: [number, number, number][] = [
+          [x - tw, zPos, 90],
+          [x + tw, zPos, -90],
+          [x, zPos - td, 0],
+          [x, zPos + td, 180],
+          [x - tw, zPos - td, 45],
+          [x + tw, zPos - td, -45],
+          [x - tw, zPos + td, 135],
+          [x + tw, zPos + td, -135],
+        ];
+        let placed = 0;
+        for (let i = 0; i < Math.min(chairs, chairPos.length); i++) {
+          const [cx, cz, rot] = chairPos[i];
+          if (builder.placeItem("dining-chair", cx, cz, (rot * Math.PI) / 180))
+            placed++;
+        }
+        return { tableId, chairsPlaced: placed };
+      },
+    });
+
+    const basePrompt = buildPrompt(validInput);
+
+    // ── Phase 1: WALLS ──────────────────────────────────────────────────
+    await generateText({
+      model,
+      system: systemPrompt,
+      prompt: `${basePrompt}\n\nYou are in PHASE 1: WALLS ONLY.\nCreate ALL walls now (perimeter + interior). Call create_walls ONCE.\nDo NOT explain — just call the tool.`,
+      tools: { create_walls: wallTool },
+      maxOutputTokens: 4096,
+      temperature: 0.3,
+      stopWhen: stepCountIs(3),
+    });
+
+    // ── Phase 2: ZONES ──────────────────────────────────────────────────
+    const afterWalls = builder.getSceneSummary();
+    await generateText({
+      model,
+      system: systemPrompt,
+      prompt: `${basePrompt}\n\nYou are in PHASE 2: ZONES ONLY.\nWalls created: ${afterWalls.wallCount}.\nNow create ALL zones. Call create_zone for each zone.\nRequired: entrance, dining_area, kitchen, restroom.\nOptional: bar_area, terrace, storage, office based on description.\nDo NOT explain — just call the tools.`,
+      tools: { create_zone: zoneTool },
+      maxOutputTokens: 4096,
+      temperature: 0.3,
+      stopWhen: stepCountIs(10),
+    });
+
+    // ── Phase 3: DOORS & WINDOWS ────────────────────────────────────────
+    const afterZones = builder.getSceneSummary();
+    const wallList = afterZones.walls
+      .map((w) => w.id)
+      .join(", ");
+    await generateText({
+      model,
+      system: systemPrompt,
+      prompt: `${basePrompt}\n\nYou are in PHASE 3: DOORS AND WINDOWS ONLY.
+Current scene: ${afterZones.wallCount} walls, ${afterZones.zoneCount} zones.
+Available wall IDs: [${wallList}]
+
+ADD DOORS:
+- Entrance wall needs a double door (position 0.5, style "double")
+- Every interior wall between zones needs a single door (position 0.5)
+- At minimum create 3-5 doors
+
+ADD WINDOWS:
+- Front perimeter wall: 1-2 large windows (width 1.5)
+- Side perimeter walls: 2-3 windows each (width 1.2)
+- Back wall: 1 small window (width 0.8)
+- Do NOT put windows on interior walls
+- At minimum create 4-6 windows
+
+Do NOT explain — just call create_door and create_window for each.`,
+      tools: { create_door: doorTool, create_window: windowTool },
+      maxOutputTokens: 4096,
+      temperature: 0.3,
+      stopWhen: stepCountIs(15),
+    });
+
+    // ── Phase 4: FURNITURE ──────────────────────────────────────────────
+    const afterOpenings = builder.getSceneSummary();
+    const zoneList = afterOpenings.zones
+      .map((z) => `${z.type} (${z.name})`)
+      .join(", ");
+    await generateText({
+      model,
+      system: systemPrompt,
+      prompt: `${basePrompt}\n\nYou are in PHASE 4: FURNITURE ONLY.
+Current scene: ${afterOpenings.wallCount} walls, ${afterOpenings.doorCount} doors, ${afterOpenings.windowCount} windows, ${afterOpenings.zoneCount} zones.
+Zones: ${zoneList}
+
+Place furniture in each zone:
+- Dining: use place_table_with_chairs for each table group
+- Kitchen: use place_furniture_row for counters, stoves along walls
+- Restroom: place_furniture for toilets, sinks
+- Entrance: place_furniture for coat-rack, plants
+- Add decorative items (indoor-plant, floor-lamp)
+
+Do NOT explain — just call the tools.`,
+      tools: {
+        place_furniture: furnitureTool,
+        place_furniture_row: furnitureRowTool,
+        place_table_with_chairs: tableWithChairsTool,
+      },
+      maxOutputTokens: 4096,
+      temperature: 0.3,
+      stopWhen: stepCountIs(25),
+    });
+
+    // Verify the scene is non-empty
     const summary = builder.getSceneSummary();
     if (summary.wallCount === 0 && summary.zoneCount === 0) {
-      console.warn(
-        "AI floor plan agent produced empty scene, using fallback. Steps:",
-        result.steps.length,
-      );
+      console.warn("AI floor plan: empty scene after all phases, using fallback");
       const fallback = generateFallbackPlan(validInput);
       return { success: true, data: fallback };
     }
+
+    console.log(
+      `AI floor plan complete: ${summary.wallCount} walls, ${summary.doorCount} doors, ${summary.windowCount} windows, ${summary.zoneCount} zones, ${summary.itemCount} items`,
+    );
 
     const sceneData = builder.toSceneData();
 
